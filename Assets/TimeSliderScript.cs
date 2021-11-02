@@ -9,16 +9,17 @@ public class TimeSliderScript : MonoBehaviour
 {
     Slider slider;
     Text sliderText;
+    Environment environment;
 
     public void Start() {
         slider = GetComponentInChildren<Slider>();
         sliderText = GetComponentInChildren<Text>();
+        environment = GameObject.Find("Environment").GetComponent<Environment>();
         slider.onValueChanged.AddListener(OnValueChange);
     }
 
     public void OnValueChange(float value) {
-        Debug.Log("changed " + value);
-        Time.timeScale = value;
+        environment.timeScale = value;
         sliderText.text = "" + (Mathf.Round(value * 100) / 100);
     }
 }

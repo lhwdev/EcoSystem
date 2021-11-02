@@ -13,7 +13,7 @@ public enum Sex {
 }
 
 
-public abstract class Animal: LivingEntity {
+public abstract class Animal : LivingEntity {
 	public CreatureAction currentAction;
 	public CreatureActionReason currentActionReason;
 	public Color maleColour;
@@ -21,8 +21,8 @@ public abstract class Animal: LivingEntity {
 
 	// Settings:
 	public float timeBetweenActionChoices = 1;
-	public float timeToDeathByHunger = 200;
-	public float timeToDeathByThirst = 150;
+	public float timeToDeathByHunger = 100;
+	public float timeToDeathByThirst = 90;
 	public float hungryPointBase = .1f;
 	public float thirstyPointBase = .8f;
 	public float matePointBase = .4f;
@@ -90,7 +90,7 @@ public abstract class Animal: LivingEntity {
 	public float currentMateDesire = 0f;
 
 	protected GameObject debugPanel => transform.Find("AnimalState")?.gameObject;
-	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.Contains(gameObject) : true);
+	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.activeGameObject == gameObject : true);
 
 
 	public override TraitInfo[] CreateTraitInfos() {
@@ -115,9 +115,9 @@ public abstract class Animal: LivingEntity {
 
 		// Increase hunger and thirst over time
 		var sqrtMass = Mathf.Sqrt(mass);
-		hunger += Time.deltaTime * 1 / timeToDeathByHunger * sqrtMass;
-		thirst += Time.deltaTime * 1 / timeToDeathByThirst * sqrtMass;
-		currentMateDesire += Time.deltaTime * mateDesire / 30;
+		hunger += environment.deltaTime * 1 / timeToDeathByHunger * sqrtMass;
+		thirst += environment.deltaTime * 1 / timeToDeathByThirst * sqrtMass;
+		currentMateDesire += environment.deltaTime * mateDesire / 30;
 
 		// Animate movement. After moving a single tile, the animal will be able to choose its next action
 		if (animatingMovement) {
@@ -172,10 +172,10 @@ public abstract class Animal: LivingEntity {
 			} else {
 				if (currentMateDesire > matePointBase) {
 					FindMate();
+				} else {
+					if (!required) return false;
+					Rest();
 				}
-
-				if (!required) return false;
-				Rest();
 			}
 		}
 
@@ -196,7 +196,7 @@ public abstract class Animal: LivingEntity {
 			panel.transform.SetParent(transform);
 			panel.transform.localPosition = new Vector3(0f, 1f, 0f);
 			panel.transform.localRotation = Quaternion.identity;
-		} else if(!show && panel != null) {
+		} else if (!show && panel != null) {
 			Destroy(panel);
 		}
 	}
@@ -334,7 +334,7 @@ public abstract class Animal: LivingEntity {
 	void HandleInteractions() {
 		if (currentAction == CreatureAction.Eating) {
 			if (foodTarget && hunger > 0) {
-				float eatAmount = Mathf.Min(hunger, Time.deltaTime * 15 / eatDuration);
+				float eatAmount = Mathf.Min(hunger, environment.deltaTime * 15 / eatDuration);
 				if (foodTarget is Plant) {
 					eatAmount = ((Plant)foodTarget).Consume(eatAmount);
 					hunger -= eatAmount;
@@ -342,7 +342,7 @@ public abstract class Animal: LivingEntity {
 			}
 		} else if (currentAction == CreatureAction.Drinking) {
 			if (thirst > 0) {
-				thirst -= Time.deltaTime * 23 / drinkDuration; // thirst is easier to resolve than hunger
+				thirst -= environment.deltaTime * 23 / drinkDuration; // thirst is easier to resolve than hunger
 				thirst = Mathf.Clamp01(thirst);
 			}
 		}
@@ -350,7 +350,7 @@ public abstract class Animal: LivingEntity {
 
 	void AnimateMove() {
 		// Move in an arc from start to end tile
-		moveTime = Mathf.Min(1, moveTime + Time.deltaTime * moveSpeed * moveSpeedFactor);
+		moveTime = Mathf.Min(1, moveTime + environment.deltaTime * moveSpeed * moveSpeedFactor);
 		float height = (1 - 4 * (moveTime - .5f) * (moveTime - .5f)) * moveArcHeight * moveArcHeightFactor;
 		transform.position = Vector3.Lerp(moveStartPos, moveTargetPos, moveTime / animationDuration) + Vector3.up * height;
 

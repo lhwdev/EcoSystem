@@ -23,7 +23,7 @@ public class AnimalState : MonoBehaviour
 		hungerMax = canvas.Find("hunger_max").GetComponent<Scrollbar>();
 		thirst = canvas.Find("thirst").GetComponent<Scrollbar>();
 		thirstMax = canvas.Find("thirst_max").GetComponent<Scrollbar>();
-        rectTransform = GetComponent<RectTransform>();
+        rectTransform = GetComponentInChildren<RectTransform>();
     }
 
 

@@ -62,16 +62,26 @@ public class Environment : MonoBehaviour {
 
 	public InheritContext inheritContext;
 
+	public float timeScale = 1f;
+
+	[HideInInspector]
+	public float deltaTime;
+
+
 	void Start() {
 		prng = new System.Random();
 		inheritContext.random = prng;
 		inheritContext.variationRate = 0.002f;
 
-		entities = transform.Find("Entities").gameObject;
+		entities = GameObject.Find("Entities");
 
 		Init();
 		SpawnInitialPopulations();
 
+	}
+
+	void Update() {
+		deltaTime = Time.deltaTime * timeScale;
 	}
 
 	void OnDrawGizmos() {

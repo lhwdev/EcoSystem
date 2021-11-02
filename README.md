@@ -1,3 +1,3 @@
 # Ecosystem in Unity
 Code bases from https://github.com/SebLague/Ecosystem-2.
-Only for educational purposes as the original author didn't reveal the license.
+Only for educational purposes as the original author didn't select the license.
