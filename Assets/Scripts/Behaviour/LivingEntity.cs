@@ -1,11 +1,11 @@
 ﻿using UnityEngine;
 
 public abstract class LivingEntity : MonoBehaviour {
+	public string id;
 
 	public int colourMaterialIndex;
 	
 	public abstract Species species { get; }
-	public Material material;
 
 	public Coord coord;
 	
@@ -38,6 +38,9 @@ public abstract class LivingEntity : MonoBehaviour {
 	}
 
 	public virtual void Init(Coord coord, Environment environment) {
+		id = environment.NextEntityId();
+		name = species.name + " #" + id;
+
 		this.coord = coord;
 		this.environment = environment;
 		this.mass = species.defaultMass * Random.Range(0.9f, 1.1f);
@@ -48,15 +51,6 @@ public abstract class LivingEntity : MonoBehaviour {
 		);
 
 		transform.position = environment.tileCentres[coord.x, coord.y];
-
-		// Set material to the instance material
-		var meshRenderer = transform.GetComponentInChildren<MeshRenderer>();
-		for (int i = 0; i < meshRenderer.sharedMaterials.Length; i++) {
-			if (meshRenderer.sharedMaterials[i] is Material) {
-				material = meshRenderer.materials[i];
-				break;
-			}
-		}
 	}
 
 	protected virtual void Die(CauseOfDeath cause) {

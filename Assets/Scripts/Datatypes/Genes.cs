@@ -7,10 +7,11 @@ using UnityEngine;
 public struct InheritContext {
 	public System.Random random;
 	public float variationRate;
+	public float variationPrevention;
 
 
 	private bool NextBool() {
-		return random.Next(0, 1) == 1;
+		return random.Next(0, 2) == 1;
 	}
 
 	public bool IsVariation(TraitInfo traitInfo) {
@@ -39,8 +40,19 @@ public struct InheritContext {
 		return (NextBool(), NextBool());
 	}
 
-	public float VariationTraitFloat(float min, float max) {
-		return Mathf.Lerp(min, max, (float)random.NextDouble());
+
+	public float VariationTraitFloat(float min, float max, float center, float centerizeFraction) {
+		var k = (center - min) / (max - min);
+		var x = (float)random.NextDouble();
+		var n = variationPrevention * centerizeFraction;
+
+		// bias toward center; using quadratic function
+		if (x < 0.5f) {
+			x = (1 / Mathf.Pow(k, n - 1)) * Mathf.Pow(Mathf.Abs(x - k), n) + k;
+		} else {
+			x = (1 / Mathf.Pow(1 - k, n)) * Mathf.Pow(Mathf.Abs(x - k), n) + k;
+		}
+		return Mathf.Lerp(min, max, x);
 	}
 }
 
@@ -196,21 +208,23 @@ public class AllericTrait : Trait {
 
 
 public class ValueTraitInfo : TraitInfo {
+	public float defaultValue;
 	public float min;
 	public float max;
-	public float defaultValue;
+	public float defaultUrge;
 
 
-	public ValueTraitInfo(String name, float defaultValue, float min, float max) : base() {
+	public ValueTraitInfo(String name, float defaultValue, float min, float max, float defaultUrge = 2f) : base() {
 		this.name = name;
 		this.defaultValue = defaultValue;
 		this.min = min;
 		this.max = max;
+		this.defaultUrge = defaultUrge;
 	}
 
 	public override Trait Default(InheritContext context) {
 		if (float.IsNaN(defaultValue) || context.IsVariation(this)) {
-			return new ValueTrait(this, context.VariationTraitFloat(min, max));
+			return new ValueTrait(this, context.VariationTraitFloat(min, max, defaultValue, defaultUrge));
 		} else {
 			return new ValueTrait(this, defaultValue);
 		}
@@ -225,7 +239,7 @@ public class ValueTrait : Trait {
 		}
 
 		if (context.IsVariation(info)) {
-			return new ValueTrait(info, context.VariationTraitFloat(info.min, info.max));
+			return new ValueTrait(info, context.VariationTraitFloat(info.min, info.max, info.defaultValue, info.defaultUrge));
 		} else {
 			return new ValueTrait(info, context.InheritTraitBare(father.value, mother.value));
 		}

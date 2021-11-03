@@ -129,7 +129,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   colourMaterialIndex: 0
-  material: {fileID: 0}
   coord:
     x: 0
     y: 0
@@ -138,8 +137,33 @@ MonoBehaviour:
     x: 0
     y: 0
   mass: 0
+  environment: {fileID: 0}
   currentAction: 0
-  maleColour: {r: 0, g: 0, b: 0, a: 0}
-  femaleColour: {r: 0, g: 0, b: 0, a: 0}
+  currentActionReason: 0
+  material: {fileID: 0}
+  sexColorMaterialIndex: 0
+  maleColour: {r: 0.2924528, g: 0.26400027, b: 0.2469295, a: 1}
+  femaleColour: {r: 0.4433962, g: 0.40975046, b: 0.36601102, a: 1}
+  timeBetweenActionChoices: 1
+  timeToDeathByHunger: 100
+  timeToDeathByThirst: 90
+  hungryPointBase: 0.1
+  thirstyPointBase: 0.8
+  matePointBase: 0.4
+  criticalPercent: 0.7
   hunger: 0
   thirst: 0
+  animatingMovement: 0
+  animatingCritical: 0
+  animationDuration: 0
+  remainingRestWalkCount: 0
+  moveFromCoord:
+    x: 0
+    y: 0
+  moveTargetCoord:
+    x: 0
+    y: 0
+  moveStartPos: {x: 0, y: 0, z: 0}
+  moveTargetPos: {x: 0, y: 0, z: 0}
+  moveTime: 0
+  currentMateDesire: 0

@@ -5,6 +5,7 @@
     Exploring,
     GoingToFood,
     GoingToWater,
+    GoingToMate,
     Eating,
     Drinking,
     SearchingForMate,

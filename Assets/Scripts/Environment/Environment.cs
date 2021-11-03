@@ -67,13 +67,32 @@ public class Environment : MonoBehaviour {
 	[HideInInspector]
 	public float deltaTime;
 
+	// debugs
+	public float hungerSpeed = 1f;
+	public float thirstSpeed = 1f;
+	public float mateUrgeSpeed = 1f;
+
+
+#if UNITY_EDITOR
+	public Dictionary<TraitInfo, bool> disabledTraits;
+	static TraitInfo[] traitsToDisable = Animal.AnimalDefaultTraitInfos;
+#endif
 
 	void Start() {
 		prng = new System.Random();
 		inheritContext.random = prng;
 		inheritContext.variationRate = 0.002f;
+		inheritContext.variationPrevention = 2f;
 
 		entities = GameObject.Find("Entities");
+
+		// TODO: run only once on initializing
+#if UNITY_EDITOR
+		disabledTraits = new Dictionary<TraitInfo, bool>();
+		foreach (var trait in traitsToDisable) {
+			disabledTraits[trait] = false;
+		}
+#endif
 
 		Init();
 		SpawnInitialPopulations();
@@ -94,6 +113,11 @@ public class Environment : MonoBehaviour {
             }
         }
         */
+	}
+
+	int lastEntityId = 1;
+	public string NextEntityId() {
+		return "" + (lastEntityId++);
 	}
 
 	public void RegisterMove(LivingEntity entity, Coord from, Coord to) {

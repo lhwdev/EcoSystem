@@ -16,6 +16,8 @@ public enum Sex {
 public abstract class Animal : LivingEntity {
 	public CreatureAction currentAction;
 	public CreatureActionReason currentActionReason;
+	public Material material;
+	public int sexColorMaterialIndex;
 	public Color maleColour;
 	public Color femaleColour;
 
@@ -40,11 +42,14 @@ public abstract class Animal : LivingEntity {
 
 	protected LivingEntity foodTarget;
 	protected Coord waterTarget;
+	protected Animal mateTarget;
 
 	// Move data:
 	public bool animatingMovement;
 	public bool animatingCritical;
 	public float animationDuration;
+	public EntityAnimation entityAnimation;
+	Action onEntityAnimationEnd;
 	public int remainingRestWalkCount = 0;
 	float restWalkAroundStartTime = float.MinValue;
 	public Coord moveFromCoord;
@@ -65,27 +70,33 @@ public abstract class Animal : LivingEntity {
 
 
 	public static BinaryTraitInfo sexTrait = new BinaryTraitInfo("sex", defaultValue: null);
-	public static ValueTraitInfo moveSpeedTrait = new ValueTraitInfo("moveSpeed", defaultValue: 1.5f, min: 0.5f, max: 5f);
-	public static ValueTraitInfo drinkDurationTrait = new ValueTraitInfo("drinkDuration", defaultValue: 6f, min: 1f, max: 100f);
-	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 100f);
-	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f);
-	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 10f, min: 5f, max: 16f);
+	public static ValueTraitInfo moveSpeedTrait = new ValueTraitInfo("moveSpeed", defaultValue: 1.5f, min: 0.5f, max: 5f, defaultUrge: 5f);
+	public static ValueTraitInfo drinkDurationTrait = new ValueTraitInfo("drinkDuration", defaultValue: 6f, min: 1f, max: 40f, defaultUrge: 3f);
+	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, defaultUrge: 4f);
+	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, defaultUrge: 1.2f);
+	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, defaultUrge: 1.4f);
+	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 10f, min: 5f, max: 16f, defaultUrge: 3f);
 
-	private static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
+	public static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
+		sexTrait,
 		moveSpeedTrait,
 		drinkDurationTrait,
 		eatDurationTrait,
 		mateDesireTrait,
+		childMaturityTrait,
 		maxViewDistanceTrait,
-		sexTrait,
 	});
 
+	public Sex sex => genes.Get<BinaryTrait>(sexTrait).value ? Sex.Male : Sex.Female;
 	public float moveSpeed => genes.Get<ValueTrait>(moveSpeedTrait).value;
 	public float drinkDuration => genes.Get<ValueTrait>(drinkDurationTrait).value;
 	public float eatDuration => genes.Get<ValueTrait>(eatDurationTrait).value;
 	public float mateDesire => genes.Get<ValueTrait>(mateDesireTrait).value;
+	public float dynamicMatePointBase;
+	public float childMaturity => genes.Get<ValueTrait>(childMaturityTrait).value;
 	public float maxViewDistance => genes.Get<ValueTrait>(maxViewDistanceTrait).value;
-	public Sex sex => genes.Get<BinaryTrait>(sexTrait).value ? Sex.Male : Sex.Female;
+
+	public PregnantState pregnantState = null;
 
 	public float currentMateDesire = 0f;
 
@@ -101,11 +112,20 @@ public abstract class Animal : LivingEntity {
 	public override void Init(Coord coord, Environment environment) {
 		base.Init(coord, environment);
 
-		moveFromCoord = coord;
-
+		// Set material to the instance material
+		var meshRenderer = transform.GetComponentInChildren<MeshRenderer>();
+		material = meshRenderer.materials[sexColorMaterialIndex];
 		material.color = sex == Sex.Male ? maleColour : femaleColour;
 
-		ChooseNextAction(true);
+		moveFromCoord = coord;
+		UpdateMatePointBase();
+
+		ChooseNextAction(required: true);
+	}
+
+	void UpdateMatePointBase() {
+		var desire = mateDesire;
+		dynamicMatePointBase = Mathf.Lerp(Mathf.Max(0f, desire - .3f), mateDesire + .3f, (float)environment.prng.NextDouble());
 	}
 
 
@@ -115,26 +135,40 @@ public abstract class Animal : LivingEntity {
 
 		// Increase hunger and thirst over time
 		var sqrtMass = Mathf.Sqrt(mass);
-		hunger += environment.deltaTime * 1 / timeToDeathByHunger * sqrtMass;
-		thirst += environment.deltaTime * 1 / timeToDeathByThirst * sqrtMass;
-		currentMateDesire += environment.deltaTime * mateDesire / 30;
+		hunger += environment.deltaTime * environment.hungerSpeed / timeToDeathByHunger * sqrtMass;
+		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * sqrtMass;
+		if (pregnantState == null) {
+			currentMateDesire += environment.deltaTime * environment.mateUrgeSpeed * mateDesire / 200;
+		}
 
 		// Animate movement. After moving a single tile, the animal will be able to choose its next action
 		if (animatingMovement) {
 			if (animatingCritical) {
 				AnimateMove();
 			} else {
-				var changed = ChooseNextAction(false);
+				var changed = ChooseNextAction(required: false);
 				if (!changed) {
 					AnimateMove();
+				}
+			}
+		} else if (entityAnimation != null) {
+			if (entityAnimation.isCritical) {
+				UpdateEntityAnimation();
+			} else {
+				var changed = ChooseNextAction(required: false);
+				if (!changed) {
+					UpdateEntityAnimation();
 				}
 			}
 		} else {
 			// Handle interactions with external things, like food, water, mates
 			HandleInteractions();
+			if (currentAction == CreatureAction.Mating) {
+				return;
+			}
 			float timeSinceLastActionChoice = Time.time - lastActionChooseTime;
 			if (timeSinceLastActionChoice > timeBetweenActionChoices) {
-				ChooseNextAction(true);
+				ChooseNextAction(required: true);
 			}
 		}
 
@@ -170,7 +204,7 @@ public abstract class Animal : LivingEntity {
 			if (thirst >= thirstyPoint) {
 				FindWater();
 			} else {
-				if (currentMateDesire > matePointBase) {
+				if (currentMateDesire > dynamicMatePointBase) {
 					FindMate();
 				} else {
 					if (!required) return false;
@@ -259,14 +293,20 @@ public abstract class Animal : LivingEntity {
 
 	protected virtual void FindMate() {
 		currentActionReason = CreatureActionReason.Mate;
-		environment.SensePotentialMates(this);
+		var mates = environment.SensePotentialMates(this);
 
-
+		if (mates.Count > 0) {
+			currentAction = CreatureAction.GoingToMate;
+			mateTarget = mates[environment.prng.Next(mates.Count)];
+			CreatePath(mateTarget.coord);
+		} else {
+			currentAction = CreatureAction.Exploring;
+		}
 	}
 
 	// When choosing from multiple food sources, the one with the lowest penalty + highest visibility will be selected
 	protected virtual float FoodPreference(LivingEntity self, LivingEntity food) {
-		return food.mass / Coord.SqrDistance(self.coord, food.coord);
+		return (Mathf.Sqrt(food.mass + 1f) - 1f) / Coord.SqrDistance(self.coord, food.coord);
 	}
 
 	protected void Act() {
@@ -274,6 +314,7 @@ public abstract class Animal : LivingEntity {
 			case CreatureAction.Exploring:
 				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), 1f, true);
 				break;
+
 			case CreatureAction.GoingToFood:
 				if (Coord.AreNeighbours(coord, foodTarget.coord)) {
 					LookAt(foodTarget.coord);
@@ -283,10 +324,22 @@ public abstract class Animal : LivingEntity {
 					pathIndex++;
 				}
 				break;
+
 			case CreatureAction.GoingToWater:
 				if (Coord.AreNeighbours(coord, waterTarget)) {
 					LookAt(waterTarget);
 					currentAction = CreatureAction.Drinking;
+				} else {
+					StartMoveToCoord(path[pathIndex], 1f, true);
+					pathIndex++;
+				}
+
+				break;
+
+			case CreatureAction.GoingToMate:
+				if (Coord.AreNeighbours(coord, mateTarget.coord)) {
+					LookAt(mateTarget.coord);
+					currentAction = CreatureAction.Mating;
 				} else {
 					StartMoveToCoord(path[pathIndex], 1f, true);
 					pathIndex++;
@@ -332,20 +385,67 @@ public abstract class Animal : LivingEntity {
 	}
 
 	void HandleInteractions() {
-		if (currentAction == CreatureAction.Eating) {
-			if (foodTarget && hunger > 0) {
-				float eatAmount = Mathf.Min(hunger, environment.deltaTime * 15 / eatDuration);
-				if (foodTarget is Plant) {
-					eatAmount = ((Plant)foodTarget).Consume(eatAmount);
-					hunger -= eatAmount;
+		switch (currentAction) {
+			case CreatureAction.Eating:
+				if (foodTarget && hunger > 0) {
+					float eatAmount = Mathf.Min(hunger, environment.deltaTime * 15 / eatDuration);
+					if (foodTarget is Plant) {
+						eatAmount = ((Plant)foodTarget).Consume(eatAmount);
+						hunger -= eatAmount;
+						mass += eatAmount * 0.02f;
+					}
 				}
-			}
-		} else if (currentAction == CreatureAction.Drinking) {
-			if (thirst > 0) {
-				thirst -= environment.deltaTime * 23 / drinkDuration; // thirst is easier to resolve than hunger
-				thirst = Mathf.Clamp01(thirst);
-			}
+				break;
+
+			case CreatureAction.Drinking:
+				if (thirst > 0) {
+					thirst -= environment.deltaTime * 23 / drinkDuration; // thirst is easier to resolve than hunger
+					thirst = Mathf.Clamp01(thirst);
+				}
+				break;
+
+			case CreatureAction.Mating:
+				// found a mate right ahead, try to mate
+				if (sex == Sex.Male) {
+					var result = mateTarget.TryMate(this);
+					if (result) {
+						currentMateDesire = 0f;
+						StartEntityAnimation(new MateAnimation(this), OnMateAnimationEnd);
+					} else {
+						// no-op; keep exploring
+					}
+				} else {
+					// just wait for TryMate, mateTarget will be male so call it
+				}
+				break;
 		}
+	}
+
+	void OnMateAnimationEnd() {
+		if (sex == Sex.Female) {
+			// became pregnant
+			pregnantState = new PregnantState();
+			var oneMass = childMaturity * species.defaultMass * (1 + 0.3f * (float)environment.prng.NextDouble());
+		}
+
+		currentMateDesire = 0f;
+		UpdateMatePointBase();
+		ChooseNextAction(required: true);
+	}
+
+	public bool TryMate(Animal with) {
+		if (environment.prng.NextDouble() < Mathf.Sqrt(mateDesire)) {
+			// becomes pregnant
+			currentMateDesire = 0f;
+
+			Debug.Log("Mating " + name + " and " + with.name);
+
+			StartEntityAnimation(new MateAnimation(this), OnMateAnimationEnd);
+
+			return true;
+		}
+
+		return false;
 	}
 
 	void AnimateMove() {
@@ -358,11 +458,13 @@ public abstract class Animal : LivingEntity {
 		if (moveTime >= 1) {
 			environment.RegisterMove(this, moveFromCoord, moveTargetCoord);
 			coord = moveTargetCoord;
-			hunger += (moveStartPos - moveTargetPos).sqrMagnitude * mass / 1500 / timeToDeathByHunger;
+			var movedDistance = (moveStartPos - moveTargetPos).sqrMagnitude;
+			hunger += movedDistance * mass / 1500 / timeToDeathByHunger;
+			thirst += movedDistance / 1300 / timeToDeathByThirst;
 
 			animatingMovement = false;
 			moveTime = 0;
-			ChooseNextAction(true);
+			ChooseNextAction(required: true);
 		}
 	}
 
@@ -389,4 +491,27 @@ public abstract class Animal : LivingEntity {
 		}
 	}
 
+	void StartEntityAnimation(EntityAnimation newAnimation, Action onAnimationEnd) {
+		if (entityAnimation != null) {
+			Debug.LogWarning("Animal " + name + ": Already contains animation but tried to set another");
+		}
+
+		entityAnimation = newAnimation;
+		onEntityAnimationEnd = onAnimationEnd;
+		newAnimation.Update(deltaTime: 0f);
+	}
+
+	void UpdateEntityAnimation() {
+		var animation = entityAnimation;
+		animation.Update(deltaTime: environment.deltaTime);
+
+		if (!animation.isAnimating) {
+			entityAnimation = null;
+			if (onEntityAnimationEnd != null) {
+				onEntityAnimationEnd();
+				onEntityAnimationEnd = null;
+			}
+			ChooseNextAction(required: true);
+		}
+	}
 }
