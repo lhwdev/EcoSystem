@@ -170,7 +170,9 @@ public abstract class Animal : LivingEntity {
 				this.mass -= mass * 0.8f; // just adjustment to increase the childs
 			}
 			pregnantState.childs = 0;
-
+			if(i > 0) {
+				SoundEfx.instance.pop.Play();
+			}
 			Debug.Log($"{name} born {i} children");
 		} else if (entityAnimation != null) {
 			if (entityAnimation.isCritical) {
@@ -212,7 +214,7 @@ public abstract class Animal : LivingEntity {
 
 
 		// Update scale following to the mass
-		var scale = Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
+		var scale = 0.3f + 0.7f * Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
 		transform.localScale = new Vector3(scale, scale, scale);
 	}
 
@@ -545,8 +547,8 @@ public abstract class Animal : LivingEntity {
 			environment.RegisterMove(this, moveFromCoord, moveTargetCoord);
 			coord = moveTargetCoord;
 			var movedDistance = (moveStartPos - moveTargetPos).sqrMagnitude;
-			hunger += movedDistance * mass / 1500 / timeToDeathByHunger;
-			thirst += movedDistance / 1300 / timeToDeathByThirst;
+			hunger += movedDistance * mass / 3500 / timeToDeathByHunger;
+			thirst += movedDistance / 2500 / timeToDeathByThirst;
 
 			animatingMovement = false;
 			moveTime = 0;
