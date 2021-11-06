@@ -1,47 +1,74 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Linq;
 using UnityEngine;
 
 public class Plant : LivingEntity {
-    public static ValueTraitInfo initialAmountTrait = new ValueTraitInfo("initialAmount", defaultValue: 1f, min: 0.3f, max: 1.7f);
+	const float consumeSpeed = 8;
 
-    public static TraitInfo[] PlantDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
-        initialAmountTrait
-    });
+	float reproduceTime;
 
 
-    float amountRemaining = 1;
-    const float consumeSpeed = 8;
+	public override Species species => Species.Plant;
 
 
-    public override Species species => Species.Plant;
+	public override void Init(Coord coord, Environment environment) {
+		base.Init(coord, environment);
+		UpdateReproduceTime();
+	}
 
+	void UpdateReproduceTime() {
+		reproduceTime = environment.time + 40f + ((float)environment.prng.NextDouble() * 50f);
+	}
 
+	Coord FindEmptyTile() {
+		var surrounding = environment.walkableNeighboursMap[coord.x, coord.y];
 
-    public override TraitInfo[] CreateTraitInfos() {
-        return PlantDefaultTraitInfos;
-    }
+		foreach (var c in surrounding) {
+			if (!environment.speciesMaps[Species.Plant].GetRegion(c).Any(entity => entity.coord == c)) {
+				return c;
+			}
+		}
 
-    public override void Init(Coord coord, Environment environment) {
-        base.Init(coord, environment);
-    }
+		return Coord.invalid;
+	}
 
-    public float Consume (float amount) {
-        float amountConsumed = Mathf.Max (0, Mathf.Min (amountRemaining, amount));
-        amountRemaining -= amount * consumeSpeed;
+	void Reproduce() {
+		if (mass > 3f) {
+			var coord = FindEmptyTile();
+			if (coord == Coord.invalid) {
+				return;
+			}
+			var child = environment.BornEntityFrom(
+        mother: this, father: this,
+        mass: 2f,
+        coord: coord
+      );
+			environment.SpawnEntity(child);
+			mass -= 1.7f;
+		}
+	}
 
-        transform.localScale = Vector3.one * amountRemaining;
+	void Update() {
+		// Photosynthesis
+		mass += environment.deltaTime / 150f;
 
-        if (amountRemaining <= 0) {
-            Die (CauseOfDeath.Eaten);
-        }
+		if (reproduceTime < environment.time) {
+			Reproduce();
+			UpdateReproduceTime();
+		}
 
-        return amountConsumed;
-    }
+		// Update scale following to the mass
+		var scale = Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
+		transform.localScale = Vector3.one * scale;
+	}
 
-    public float AmountRemaining {
-        get {
-            return amountRemaining;
-        }
-    }
+	public float Consume(float mass) {
+		float amountConsumed = Mathf.Max(0, Mathf.Min(this.mass, mass));
+		this.mass -= mass * consumeSpeed;
+
+		if (this.mass <= 0) {
+			Die(CauseOfDeath.Eaten);
+		}
+
+		return amountConsumed;
+	}
 }

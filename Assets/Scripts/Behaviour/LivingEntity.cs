@@ -5,12 +5,12 @@ public abstract class LivingEntity : MonoBehaviour {
 	public string id;
 
 	public int colourMaterialIndex;
-	
+
 	public LivingEntity prefab;
 	public abstract Species species { get; }
 
 	public Coord coord;
-	
+
 	[HideInInspector]
 	public int mapIndex;
 	[HideInInspector]
@@ -23,6 +23,12 @@ public abstract class LivingEntity : MonoBehaviour {
 	protected bool dead;
 
 	public Genes genes;
+	
+	public float bornAt;
+	public float age {
+		get => environment.time - bornAt;
+		set => bornAt = environment.time + value;
+	}
 
 
 	public static TraitInfo maxAgeTrait = new ValueTraitInfo("maxAge", defaultValue: 300f, min: 300f, max: 300f);
@@ -39,10 +45,6 @@ public abstract class LivingEntity : MonoBehaviour {
 		return LivingEntityDefaultTraitInfos;
 	}
 
-	public void InitGene(Genes genes) {
-		this.genes = genes;
-	}
-
 	public virtual void Init(Coord coord, Environment environment) {
 		id = environment.NextEntityId();
 		name = species.name + " #" + id;
@@ -51,14 +53,17 @@ public abstract class LivingEntity : MonoBehaviour {
 		this.environment = environment;
 
 		transform.position = environment.tileCentres[coord.x, coord.y];
+
+		bornAt = environment.time;
 	}
 
 	public virtual void InitNew() {
 		this.mass = species.defaultMass * Random.Range(0.9f, 1.1f);
 	}
 
-	public virtual void InitInherit(LivingEntity mother, LivingEntity father) {
-	}
+	public virtual void InitInherit(LivingEntity mother, LivingEntity father) { }
+
+	public virtual void PostInit() { }
 
 	void OnValidate() {
 		genes.OnValidate();

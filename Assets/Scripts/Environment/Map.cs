@@ -5,7 +5,7 @@ using UnityEngine;
 // The map is divided into n x n regions, with a list of entities for each region
 // This allows an entity to more quickly find other nearby entities
 public class Map {
-	public readonly List<LivingEntity>[,] map;
+	readonly List<LivingEntity>[,] map;
 	public readonly List<LivingEntity> allEntities = new List<LivingEntity>();
 	readonly Vector2[,] centres;
 	readonly int regionSize;
@@ -29,6 +29,13 @@ public class Map {
 				map[x, y] = new List<LivingEntity>();
 			}
 		}
+	}
+
+	public List<LivingEntity> GetRegion(Coord coord) {
+		int regionX = coord.x / regionSize;
+		int regionY = coord.y / regionSize;
+
+		return map[regionX, regionY];
 	}
 
 	public List<LivingEntity> GetEntities(Coord origin, float viewDistance) {
@@ -100,8 +107,8 @@ public class Map {
 
 				if (viewedRegionX >= 0 && viewedRegionX < numRegions && viewedRegionY >= 0 && viewedRegionY < numRegions) {
 					// Calculate distance from view coord to closest edge of region to test if region is in range
-					float ox = Mathf.Max(0, Mathf.Abs(viewCentre.x - centres[viewedRegionX, viewedRegionY].x) - regionSize / 2f);
-					float oy = Mathf.Max(0, Mathf.Abs(viewCentre.y - centres[viewedRegionX, viewedRegionY].y) - regionSize / 2f);
+					float ox = Mathf.Abs(viewCentre.x - centres[viewedRegionX, viewedRegionY].x) - regionSize / 2f;
+					float oy = Mathf.Abs(viewCentre.y - centres[viewedRegionX, viewedRegionY].y) - regionSize / 2f;
 					float sqrDstFromRegionEdge = ox * ox + oy * oy;
 					if (sqrDstFromRegionEdge <= sqrViewDst) {
 						RegionInfo info = new RegionInfo(new Coord(viewedRegionX, viewedRegionY), sqrDstFromRegionEdge);

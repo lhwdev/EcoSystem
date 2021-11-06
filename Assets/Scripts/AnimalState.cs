@@ -1,8 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
-using UnityEngine.Animations;
 using UnityEngine.UI;
 
 public class AnimalState : MonoBehaviour
@@ -14,16 +10,16 @@ public class AnimalState : MonoBehaviour
 	Scrollbar hungerMax;
 	Scrollbar thirst;
 	Scrollbar thirstMax;
-    RectTransform rectTransform;
+    new Transform transform;
 
 
     void Start() {
-        var canvas = transform.GetChild(0);
+        var canvas = base.transform.GetChild(0);
 		hunger = canvas.Find("hunger").GetComponent<Scrollbar>();
 		hungerMax = canvas.Find("hunger_max").GetComponent<Scrollbar>();
 		thirst = canvas.Find("thirst").GetComponent<Scrollbar>();
 		thirstMax = canvas.Find("thirst_max").GetComponent<Scrollbar>();
-        rectTransform = GetComponentInChildren<RectTransform>();
+        transform = GetComponent<Transform>();
     }
 
 
@@ -36,6 +32,6 @@ public class AnimalState : MonoBehaviour
 		thirst.size = animal.thirst / thirstScale;
         thirstMax.value = animal.mass / thirstScale;
 
-        rectTransform.LookAt(Camera.main.transform.position);
+        transform.LookAt(Camera.main.transform.position);
     }
 }

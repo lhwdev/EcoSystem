@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -19,7 +20,7 @@ public abstract class Animal : LivingEntity {
 	public CreatureAction currentAction {
 		get => _currentAction;
 		set {
-			if (_currentAction != value)
+			if (_currentAction != value && environment.DebugStateChange(this))
 				Debug.Log(name + ": State changed " + _currentAction + " -> " + value);
 			_currentAction = value;
 		}
@@ -85,7 +86,7 @@ public abstract class Animal : LivingEntity {
 	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, defaultUrge: 4f);
 	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, defaultUrge: 1.2f);
 	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, defaultUrge: 1.4f);
-	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 15f, min: 5f, max: 30f, defaultUrge: 3f);
+	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 20f, min: 5f, max: 50f, defaultUrge: 3f);
 
 	public static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
 		sexTrait,
@@ -105,8 +106,12 @@ public abstract class Animal : LivingEntity {
 	public float childMaturity => genes.Get<ValueTrait>(childMaturityTrait).value;
 	public float maxViewDistance => genes.Get<ValueTrait>(maxViewDistanceTrait).value;
 
+	// younger animals consume more
+	public float energyConsumption => 2f / (age * 0.03f + 1f) + 1f;
+
 	public float dynamicMatePointBase;
 	public float currentMateDesire = 0f;
+	public float actualMateDesire => currentMateDesire - (hunger / 10f);
 	public Dictionary<Animal, float> rejectedMateTargets = new Dictionary<Animal, float>();
 	public PregnantState pregnantState = new PregnantState {
 		childs = 0,
@@ -123,8 +128,8 @@ public abstract class Animal : LivingEntity {
 	}
 
 
-	public override void Init(Coord coord, Environment environment) {
-		base.Init(coord, environment);
+	public override void PostInit() {
+		base.PostInit();
 
 		// Set material to the instance material
 		var meshRenderer = transform.GetComponentInChildren<MeshRenderer>();
@@ -149,10 +154,10 @@ public abstract class Animal : LivingEntity {
 
 		// Increase hunger and thirst over time
 		var sqrtMass = Mathf.Sqrt(mass);
-		hunger += environment.deltaTime * environment.hungerSpeed / timeToDeathByHunger * sqrtMass;
+		hunger += environment.deltaTime * environment.hungerSpeed * energyConsumption / timeToDeathByHunger * sqrtMass;
 		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * sqrtMass;
 		if (pregnantState.childs == 0) {
-			currentMateDesire += environment.deltaTime * environment.mateUrgeSpeed * mateDesire / 200;
+			currentMateDesire += environment.deltaTime * environment.mateUrgeSpeed * mateDesire / 100;
 		}
 
 		// Animate movement. After moving a single tile, the animal will be able to choose its next action
@@ -165,7 +170,7 @@ public abstract class Animal : LivingEntity {
 					// forgive to spawn a child; the animal is too small to spawn a child
 					break;
 				}
-				var child = environment.BornEntityFrom(mother: this, father: mateTarget, mass: mass);
+				var child = environment.BornEntityFrom(mother: this, father: mateTarget, mass: mass, coord: coord);
 				environment.SpawnEntity(child);
 				this.mass -= mass * 0.8f; // just adjustment to increase the childs
 			}
@@ -173,7 +178,7 @@ public abstract class Animal : LivingEntity {
 			if(i > 0) {
 				SoundEfx.instance.pop.Play();
 			}
-			Debug.Log($"{name} born {i} children");
+			if(environment.debugMate) Debug.Log($"{name} born {i} children");
 		} else if (entityAnimation != null) {
 			if (entityAnimation.isCritical) {
 				UpdateEntityAnimation();
@@ -215,7 +220,9 @@ public abstract class Animal : LivingEntity {
 
 		// Update scale following to the mass
 		var scale = 0.3f + 0.7f * Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
-		transform.localScale = new Vector3(scale, scale, scale);
+		transform.localScale = Vector3.one * scale;
+
+		material.color = new Color(r: hunger / (hungryPointBase * mass), g: thirst / (thirstyPointBase * mass), b: Mathf.Min(1, Mathf.Max(0, actualMateDesire / 2)));
 	}
 
 	// Animals choose their next action after each movement step (1 tile),
@@ -248,7 +255,7 @@ public abstract class Animal : LivingEntity {
 			if (thirst >= thirstyPoint) {
 				FindWater();
 			} else {
-				if (currentMateDesire > dynamicMatePointBase) {
+				if (actualMateDesire > dynamicMatePointBase) {
 					FindMate();
 				} else {
 					if (!required) return false;
@@ -287,12 +294,19 @@ public abstract class Animal : LivingEntity {
 	protected virtual void Rest() {
 		var current = Time.fixedTime;
 		currentActionReason = CreatureActionReason.Rest;
+
 		if (remainingRestWalkCount > 0) {
 			currentAction = CreatureAction.RestingWalking;
 			remainingRestWalkCount--;
 		} else if (restWalkAroundStartTime > current) {
 			currentAction = CreatureAction.RestingIdle;
 		} else {
+			// randomly eat
+			if (environment.prng.NextDouble() < 0.1f) {
+				FindFood();
+				return;
+			}
+
 			// start random walking
 			currentAction = CreatureAction.RestingWalking;
 
@@ -359,7 +373,7 @@ public abstract class Animal : LivingEntity {
 		switch (currentAction) {
 			case CreatureAction.Exploring:
 				var speed = (currentActionReason == CreatureActionReason.Mate && sex == Sex.Female) ? 1.3f : 1f;
-				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), 1f, true);
+				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), duration: 1f, critical: true);
 				break;
 
 			case CreatureAction.GoingToFood:
@@ -384,7 +398,6 @@ public abstract class Animal : LivingEntity {
 				break;
 
 			case CreatureAction.GoingToMate:
-				Debug.Log(name + ": GoingToMate to" + mateTarget);
 				if (Coord.AreNeighbours(coord, mateTarget.coord)) {
 					LookAt(mateTarget.coord);
 					currentAction = CreatureAction.Mating;
@@ -445,11 +458,11 @@ public abstract class Animal : LivingEntity {
 		switch (currentAction) {
 			case CreatureAction.Eating:
 				if (foodTarget && hunger > 0) {
-					float eatAmount = Mathf.Min(hunger, environment.deltaTime * 15 / eatDuration);
+					float eatAmount = Mathf.Min(hunger, environment.deltaTime * 50 * energyConsumption / eatDuration);
 					if (foodTarget is Plant) {
 						eatAmount = ((Plant)foodTarget).Consume(eatAmount);
 						hunger -= eatAmount;
-						mass += eatAmount * 0.02f;
+						mass += eatAmount * 0.05f; // TODO: balance appropriate heat efficiency
 					}
 				}
 				break;
@@ -499,7 +512,7 @@ public abstract class Animal : LivingEntity {
 	public bool WantsMate(Animal with) {
 		CleanRejectedMateTargets();
 		return (currentAction == CreatureAction.Exploring || currentAction == CreatureAction.GoingToMate) &&
-			currentMateDesire > dynamicMatePointBase &&
+			actualMateDesire > dynamicMatePointBase &&
 			!rejectedMateTargets.ContainsKey(with);
 	}
 
@@ -514,13 +527,14 @@ public abstract class Animal : LivingEntity {
 			currentMateDesire = 0f;
 			mateTarget = with;
 
-			Debug.Log("Mating " + name + " and " + with.name);
+			if (environment.debugMate) Debug.Log("Mating " + name + " and " + with.name);
 
 			StartEntityAnimation(new MateAnimation(this), OnMateAnimationEnd);
 
 			return true;
 		} else {
-			Debug.Log(name + ": Rejected mate with " + with.name);
+			currentAction = CreatureAction.Exploring;
+			if (environment.debugMate) Debug.Log(name + ": Rejected mate with " + with.name);
 			rejectedMateTargets.Add(with, environment.time);
 			return false;
 		}
@@ -528,10 +542,17 @@ public abstract class Animal : LivingEntity {
 
 	void CleanRejectedMateTargets() {
 		var now = environment.time;
+		var toRemove = new List<Animal>();
 
 		foreach (var target in rejectedMateTargets) {
 			if (target.Value + mateRejectTimeout < now) {
-				rejectedMateTargets.Remove(target.Key);
+				toRemove.Add(target.Key);
+			}
+		}
+
+		if(toRemove.Count > 0) {
+			foreach (var target in toRemove) {
+				rejectedMateTargets.Remove(target);
 			}
 		}
 	}

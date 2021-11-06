@@ -26,6 +26,7 @@ public class MainCamera : MonoBehaviour {
 	private new Camera camera;
 	private GameObject walker;
 	private Rigidbody rigidBody;
+	private Vector3 lastTargetPosition;
 
 	bool follow => followSelection || followWalker;
 	Transform followTarget => followSelection ? Selection.activeTransform : (followWalker ? walker.transform : null);
@@ -48,22 +49,36 @@ public class MainCamera : MonoBehaviour {
 
 	private void Update() {
 		var position = transform.position;
-		if (follow) { // following walker
+		var follow = this.follow;
+		var followTarget = this.followTarget;
+
+		if (follow && followTarget == null || followTarget == gameObject) return; // not ready yet
+
+		if (follow) { // following
 
 			if (followSelection) {
-				if(!lastFollow) {
-					transform.localPosition = new Vector3(2f, 0f, 0f);
+				if (!lastFollow) {
+					lastTargetPosition = followTarget.position;
+					transform.localPosition = new Vector3(2f, 2f, 0f);
 				}
 				// transform.position = followTarget.position;
 			}
 			if (!lastFollow) {
-				if(followWalker) {
+				if (followWalker) {
 					transform.SetParent(walker.transform);
+					transform.localPosition = new Vector3(0f, 2f, 0f);
 				} else {
 					transform.SetParent(null);
 				}
-				transform.localPosition = new Vector3(0f, 2f, 0f);
 				lastFollow = true;
+			}
+
+			void TranslateLocal(Vector3 delta) {
+				if (followSelection) {
+					position += delta;
+				} else {
+					transform.localPosition += delta;
+				}
 			}
 
 			if (Input.GetKey(KeyCode.LeftAlt)) {
@@ -71,18 +86,18 @@ public class MainCamera : MonoBehaviour {
 				if (Input.GetMouseButton(2)) {
 					if (perspective) {
 						var vector = new Vector3(Input.GetAxis("Mouse X") * Time.deltaTime * dragSpeed, Input.GetAxis("Mouse Y") * Time.deltaTime * dragSpeed, 0f);
-						transform.localPosition += -(transform.rotation * vector);
+						TranslateLocal(-(transform.rotation * vector));
 					} else {
-						transform.localPosition += new Vector3(-Input.GetAxisRaw("Mouse X") * Time.deltaTime * dragSpeed, -Input.GetAxisRaw("Mouse Y") * Time.deltaTime * dragSpeed, 0f);
+						TranslateLocal(new Vector3(-Input.GetAxisRaw("Mouse X") * Time.deltaTime * dragSpeed, -Input.GetAxisRaw("Mouse Y") * Time.deltaTime * dragSpeed, 0f));
 					}
 
 					if (Input.GetMouseButton(1)) {
 						// Zoom in and out with Right Mouse
 						if (perspective) {
 							var vector = new Vector3(0, 0, Input.GetAxisRaw("Mouse X") * this.zoomSpeed * .07f);
-							transform.localPosition += transform.rotation * vector;
+							TranslateLocal(transform.rotation * vector);
 						} else {
-							transform.localPosition += new Vector3(0, 0, Input.GetAxisRaw("Mouse X") * this.zoomSpeed * .07f);
+							TranslateLocal(new Vector3(0, 0, Input.GetAxisRaw("Mouse X") * this.zoomSpeed * .07f));
 						}
 					}
 				}
@@ -119,9 +134,14 @@ public class MainCamera : MonoBehaviour {
 		}
 		void rotate(Vector3 target) {
 			var result = transform.localRotation * target * Time.deltaTime * walkSpeed;
-			var to = followTarget ?? transform;
-			result.Scale(new Vector3(1f, 0f, 1f));
-			to.transform.Translate(result);
+			if (followTarget) {
+				result.Scale(new Vector3(1f, 0f, 1f));
+				position += result;
+			} else {
+				var to = followTarget ?? transform;
+				result.Scale(new Vector3(1f, 0f, 1f));
+				to.transform.Translate(result);
+			}
 		}
 
 		if (Input.GetKey(KeyCode.Space)) {
@@ -155,11 +175,13 @@ public class MainCamera : MonoBehaviour {
 
 			this.transform.eulerAngles = new Vector3(this.pitch, this.yaw, 0f);
 		}
-		if(!follow) {
+		if (!follow) {
 			this.transform.position = position;
 		} else {
-			if(followSelection) {
-				this.transform.position = position + followTarget.transform.position;
+			if (followSelection) {
+				var currentTarget = followTarget.transform.position;
+				this.transform.position = position + (currentTarget - lastTargetPosition);
+				lastTargetPosition = currentTarget;
 			}
 		}
 		this.transform.Translate(0, 0, Input.GetAxis("Mouse ScrollWheel") * zoomSpeed, Space.Self);

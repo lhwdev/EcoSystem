@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using TerrainGeneration;
+using UnityEditor;
 using UnityEngine;
 
 
 public class Environment : MonoBehaviour {
-
 	const int mapRegionSize = 10;
 
 	public int seed;
@@ -22,6 +23,9 @@ public class Environment : MonoBehaviour {
 	[Header("Debug")]
 	public bool showState;
 	public bool showStateForSelected;
+	public bool debugStateChange;
+	public bool debugStateChangeForSelected;
+	public bool debugMate;
 	public GameObject showStatePrefab;
 	public float showStateScale = 1f;
 	public bool showMapDebug;
@@ -29,10 +33,13 @@ public class Environment : MonoBehaviour {
 	public float mapViewDst;
 
 	// Cached data:
+	[HideInInspector]
 	public Vector3[,] tileCentres;
+	[HideInInspector]
 	public bool[,] walkable;
 	int size;
-	Coord[,][] walkableNeighboursMap;
+	[HideInInspector]
+	public Coord[,][] walkableNeighboursMap;
 	List<Coord> walkableCoords;
 
 	Dictionary<Species, List<Species>> preyBySpecies;
@@ -45,7 +52,8 @@ public class Environment : MonoBehaviour {
 	public System.Random prng;
 	TerrainGenerator.TerrainData terrainData;
 
-	Dictionary<Species, Map> speciesMaps;
+	[HideInInspector]
+	public Dictionary<Species, Map> speciesMaps;
 	GameObject entities;
 
 	public InheritContext inheritContext;
@@ -74,8 +82,8 @@ public class Environment : MonoBehaviour {
 	void Start() {
 		prng = new System.Random();
 		inheritContext.random = prng;
-		inheritContext.variationRate = 0.002f;
-		inheritContext.variationPrevention = 2f;
+		inheritContext.variationRate = 0.005f;
+		inheritContext.variationPrevention = 1f;
 
 		entities = GameObject.Find("Entities");
 		time = Time.time;
@@ -137,6 +145,18 @@ public class Environment : MonoBehaviour {
 		}
 		return Coord.invalid;
 	}
+
+	// public IEnumerable<LivingEntity> SenseTile(Coord coord, float maxViewDistance, Species kind, System.Func<LivingEntity, float> sortFunc) {
+	// 	var speciesMap = speciesMaps[kind];
+	// 	var sources = speciesMap.GetEntities(coord, maxViewDistance);
+
+	// 	sources.Sort((a, b) => sortFunc(a).CompareTo(sortFunc(b)));
+
+	// 	return sources.Where(entity => {
+	// 		var targetCoord = entity.coord;
+	// 		return EnvironmentUtility.TileIsVisibile(this, coord.x, coord.y, targetCoord.x, targetCoord.y);
+	// 	});
+	// }
 
 	public LivingEntity SenseFood(Animal self, System.Func<LivingEntity, LivingEntity, float> foodPreference) {
 		var coord = self.coord;
@@ -414,29 +434,42 @@ public class Environment : MonoBehaviour {
 	public LivingEntity NewEntity(LivingEntity prefab, Coord coord) {
 		var entity = Instantiate(prefab);
 		entity.prefab = prefab;
+
+		entity.Init(coord, this);
+		entity.InitNew();
+		inheritContext.debugCurrentEntity = entity;
 		entity.genes = new Genes(
 			inheritContext: inheritContext,
 			infos: entity.CreateTraitInfos()
 		);
-		entity.Init(coord, this);
-		entity.InitNew();
+
+		entity.age = entity.maxAge * (0.2f + 0.2f * (float)prng.NextDouble()); // defaults to around 30% of whole lifespan
+
+		inheritContext.debugCurrentEntity = null;
+
+		entity.PostInit();
 
 		return entity;
 	}
 
-	public LivingEntity BornEntityFrom(LivingEntity mother, LivingEntity father, float mass) {
+	public LivingEntity BornEntityFrom(LivingEntity mother, LivingEntity father, float mass, Coord coord) {
 		var entity = Instantiate(mother.prefab);
 		entity.prefab = mother.prefab;
+
+		entity.Init(coord, this);
+		entity.InitInherit(mother, father);
+		entity.mass = mass;
+
+		inheritContext.debugCurrentEntity = entity;
 		entity.genes = Genes.InheritFrom(
 			inheritContext: inheritContext,
 			mother: mother.genes,
 			father: father.genes
 		);
+		inheritContext.debugCurrentEntity = null;
 
-		entity.Init(mother.coord, this);
-		entity.mass = mass;
-		entity.InitInherit(mother, father);
-
+		entity.PostInit();
+		
 		return entity;
 	}
 
@@ -552,6 +585,20 @@ public class Environment : MonoBehaviour {
 		public PopulationInfo(String species, int count) {
 			this.species = species;
 			this.count = count;
+		}
+	}
+
+
+	// Debug
+	public bool DebugStateChange(LivingEntity self) {
+		if(debugStateChange) {
+			if(debugStateChangeForSelected) {
+				return Selection.Contains(self);
+			} else {
+				return true;
+			}
+		} else {
+			return false;
 		}
 	}
 }
