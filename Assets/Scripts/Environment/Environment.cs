@@ -178,7 +178,7 @@ public class Environment : MonoBehaviour {
 		for (int i = 0; i < visibleEntities.Count; i++) {
 			var visibleAnimal = (Animal)visibleEntities[i];
 			if (visibleAnimal != self && visibleAnimal.sex != self.sex) {
-				if (visibleAnimal.currentAction == CreatureAction.SearchingForMate) {
+				if (visibleAnimal.WantsMate()) {
 					potentialMates.Add(visibleAnimal);
 				}
 			}

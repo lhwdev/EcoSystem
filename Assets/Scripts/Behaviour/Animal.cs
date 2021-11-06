@@ -14,7 +14,15 @@ public enum Sex {
 
 
 public abstract class Animal : LivingEntity {
-	public CreatureAction currentAction;
+	public CreatureAction _currentAction;
+	public CreatureAction currentAction {
+		get => _currentAction;
+		set {
+			if (_currentAction != value)
+				Debug.Log(name + ": State changed " + _currentAction + " -> " + value);
+			_currentAction = value;
+		}
+	}
 	public CreatureActionReason currentActionReason;
 	public Material material;
 	public int sexColorMaterialIndex;
@@ -75,7 +83,7 @@ public abstract class Animal : LivingEntity {
 	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, defaultUrge: 4f);
 	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, defaultUrge: 1.2f);
 	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, defaultUrge: 1.4f);
-	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 10f, min: 5f, max: 16f, defaultUrge: 3f);
+	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 15f, min: 5f, max: 30f, defaultUrge: 3f);
 
 	public static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
 		sexTrait,
@@ -125,7 +133,7 @@ public abstract class Animal : LivingEntity {
 
 	void UpdateMatePointBase() {
 		var desire = mateDesire;
-		dynamicMatePointBase = Mathf.Lerp(Mathf.Max(0f, desire - .3f), mateDesire + .3f, (float)environment.prng.NextDouble());
+		dynamicMatePointBase = (0.3f + (float)environment.prng.NextDouble()) / (1f + desire);
 	}
 
 
@@ -142,22 +150,24 @@ public abstract class Animal : LivingEntity {
 		}
 
 		// Animate movement. After moving a single tile, the animal will be able to choose its next action
-		if (animatingMovement) {
+		if (entityAnimation != null) {
+			if (entityAnimation.isCritical) {
+				UpdateEntityAnimation();
+			} else if(animatingMovement && animatingCritical) {
+				AnimateMove();
+			} else {
+				var changed = ChooseNextAction(required: false);
+				if (!changed) {
+					UpdateEntityAnimation();
+				}
+			}
+		} else if (animatingMovement) {
 			if (animatingCritical) {
 				AnimateMove();
 			} else {
 				var changed = ChooseNextAction(required: false);
 				if (!changed) {
 					AnimateMove();
-				}
-			}
-		} else if (entityAnimation != null) {
-			if (entityAnimation.isCritical) {
-				UpdateEntityAnimation();
-			} else {
-				var changed = ChooseNextAction(required: false);
-				if (!changed) {
-					UpdateEntityAnimation();
 				}
 			}
 		} else {
@@ -312,6 +322,7 @@ public abstract class Animal : LivingEntity {
 	protected void Act() {
 		switch (currentAction) {
 			case CreatureAction.Exploring:
+				var speed = (currentActionReason == CreatureActionReason.Mate && sex == Sex.Female) ? 1.3f : 1f;
 				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), 1f, true);
 				break;
 
@@ -337,12 +348,22 @@ public abstract class Animal : LivingEntity {
 				break;
 
 			case CreatureAction.GoingToMate:
+				Debug.Log(name + ": GoingToMate to" + mateTarget);
 				if (Coord.AreNeighbours(coord, mateTarget.coord)) {
 					LookAt(mateTarget.coord);
 					currentAction = CreatureAction.Mating;
 				} else {
-					StartMoveToCoord(path[pathIndex], 1f, true);
-					pathIndex++;
+					if (sex == Sex.Male) {
+						StartMoveToCoord(path[pathIndex], 1f, true);
+						pathIndex++;
+					} else {
+						if(Coord.SqrDistance(coord, mateTarget.coord) <= 9) {
+							// male is so near; just wait
+						} else if(environment.prng.NextDouble() > 0.5f) {
+							StartMoveToCoord(path[pathIndex], 1.3f, true);
+							pathIndex++;
+						}
+					}
 				}
 				break;
 		}
@@ -431,6 +452,13 @@ public abstract class Animal : LivingEntity {
 		currentMateDesire = 0f;
 		UpdateMatePointBase();
 		ChooseNextAction(required: true);
+	}
+
+
+	// Public mate related methods
+
+	public bool WantsMate() {
+		return (currentAction == CreatureAction.Exploring || currentAction == CreatureAction.GoingToMate) && currentMateDesire > dynamicMatePointBase;
 	}
 
 	public bool TryMate(Animal with) {

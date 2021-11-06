@@ -9,7 +9,7 @@
 using System;
 
 
-[System.Serializable]
+[Serializable]
 public abstract class Species {
 	public static Species Undefined = new UndefinedSpecies();
 

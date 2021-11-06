@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEditor;
 
 public abstract class LivingEntity : MonoBehaviour {
 	public string id;
@@ -51,6 +52,10 @@ public abstract class LivingEntity : MonoBehaviour {
 		);
 
 		transform.position = environment.tileCentres[coord.x, coord.y];
+	}
+
+	void OnValidate() {
+		genes.OnValidate();
 	}
 
 	protected virtual void Die(CauseOfDeath cause) {

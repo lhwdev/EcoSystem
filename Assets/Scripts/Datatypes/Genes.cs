@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using UnityEngine;
+using UnityEditor;
+using System.Runtime.InteropServices;
 
 public struct InheritContext {
 	public System.Random random;
@@ -57,12 +58,14 @@ public struct InheritContext {
 }
 
 
+[Serializable]
 public abstract class Trait {
 	public abstract TraitInfo info { get; }
 
 	public abstract Trait InheritWith(InheritContext context, Trait other);
 }
 
+[Serializable]
 public abstract class TraitInfo {
 	public String name;
 
@@ -184,7 +187,7 @@ public class AllericTrait : Trait {
 	public bool hasTrait {
 		get {
 			var result = a && b;
-			if(traitInfo.isDominanceTrait) {
+			if (traitInfo.isDominanceTrait) {
 				return result;
 			} else {
 				return !result;
@@ -263,12 +266,68 @@ public class ValueTrait : Trait {
 }
 
 
+[Serializable]
+struct LightTrait {
+	public enum TraitType { alleric, binary, value }
+
+	[HideInInspector]
+	public string name;
+
+	public TraitType type;
+	public float value1;
+	public float value1min;
+	public float value1max;
+	public float value2;
+}
+
+
+[Serializable]
 public class Genes {
 	private Dictionary<TraitInfo, Trait> traitMap;
 	public Trait[] traits;
 
+	[SerializeField]
+	LightTrait[] lightTraits;
+	[SerializeField]
+	bool lightTraitsChanged;
+
 	public Genes(Trait[] traits) {
 		this.traits = traits;
+		lightTraits = traits.Select(t => {
+			switch (t) {
+				case AllericTrait at:
+					return new LightTrait {
+						name = at.traitInfo.name,
+						type = LightTrait.TraitType.alleric,
+						value1 = at.a ? 1f : 0f,
+						value1min = 0f,
+						value1max = 1f,
+						value2 = at.b ? 1f : 0f
+					};
+
+				case BinaryTrait bt:
+					return new LightTrait {
+						name = bt.traitInfo.name,
+						type = LightTrait.TraitType.binary,
+						value1 = bt.value ? 1f : 0f,
+						value1min = 0f,
+						value1max = 1f,
+						value2 = bt.value ? 0f : 1f
+					};
+
+				case ValueTrait vt:
+					return new LightTrait {
+						name = vt.traitInfo.name,
+						type = LightTrait.TraitType.value,
+						value1 = vt.value,
+						value1min = vt.traitInfo.min,
+						value1max = vt.traitInfo.max,
+						value2 = 0f
+					};
+
+				default: throw new NotImplementedException();
+		}
+		}).ToArray();
 		traitMap = new Dictionary<TraitInfo, Trait>(capacity: traits.Length);
 
 		foreach (var trait in traits) {
@@ -282,5 +341,35 @@ public class Genes {
 
 	public T Get<T>(TraitInfo info) where T : Trait {
 		return traitMap[info] as T;
+	}
+
+
+	public void OnValidate() {
+		if (lightTraitsChanged) {
+			// change values in traits
+
+			for (int i = 0; i < traits.Length; i++) {
+				var trait = traits[i];
+				var lightTrait = lightTraits[i];
+
+				switch (trait) {
+					case AllericTrait at:
+						at.a = lightTrait.value1 > 0.2f;
+						at.b = lightTrait.value2 > 0.2f;
+						break;
+
+					case BinaryTrait bt:
+						bt.value = lightTrait.value1 > 0.2f;
+						break;
+
+					case ValueTrait vt:
+						vt.value = lightTrait.value1;
+						break;
+
+					default: throw new NotImplementedException();
+				}
+			}
+		}
+		lightTraitsChanged = false;
 	}
 }
