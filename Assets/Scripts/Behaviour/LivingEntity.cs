@@ -6,6 +6,7 @@ public abstract class LivingEntity : MonoBehaviour {
 
 	public int colourMaterialIndex;
 	
+	public LivingEntity prefab;
 	public abstract Species species { get; }
 
 	public Coord coord;
@@ -38,20 +39,25 @@ public abstract class LivingEntity : MonoBehaviour {
 		return LivingEntityDefaultTraitInfos;
 	}
 
+	public void InitGene(Genes genes) {
+		this.genes = genes;
+	}
+
 	public virtual void Init(Coord coord, Environment environment) {
 		id = environment.NextEntityId();
 		name = species.name + " #" + id;
 
 		this.coord = coord;
 		this.environment = environment;
-		this.mass = species.defaultMass * Random.Range(0.9f, 1.1f);
-
-		genes = new Genes(
-			inheritContext: environment.inheritContext,
-			infos: CreateTraitInfos()
-		);
 
 		transform.position = environment.tileCentres[coord.x, coord.y];
+	}
+
+	public virtual void InitNew() {
+		this.mass = species.defaultMass * Random.Range(0.9f, 1.1f);
+	}
+
+	public virtual void InitInherit(LivingEntity mother, LivingEntity father) {
 	}
 
 	void OnValidate() {

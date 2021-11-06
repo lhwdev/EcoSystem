@@ -28,28 +28,41 @@ public class GenesDrawer : PropertyDrawer {
 					var value1min = trait.FindPropertyRelative("value1min");
 					var value1max = trait.FindPropertyRelative("value1max");
 
-					var w = rect.width / 3;
+					var w = rect.width / 10;
 					var h = EditorGUIUtility.singleLineHeight;
 
 					EditorGUI.LabelField(
-						new Rect(rect.x, rect.y, w, h),
+						new Rect(rect.x, rect.y, w * 3, h),
 						new GUIContent(name.stringValue),
 						EditorStyles.label
 					);
 
 					EditorGUI.LabelField(
-						new Rect(rect.x + w, rect.y, w, h),
+						new Rect(rect.x + w * 3, rect.y, w * 2, h),
 						new GUIContent(type.enumDisplayNames[type.enumValueIndex]),
 						EditorStyles.label
 					);
-
-					EditorGUI.Slider(
-						new Rect(rect.x + 2 * w, rect.y, w, h * 2),
-						property: value1,
+					var r = new Rect(rect.x + w * 5, rect.y, w * 3, h);
+					EditorGUI.BeginProperty(r, GUIContent.none, value1);
+					EditorGUI.BeginChangeCheck();
+					var newValue = GUI.HorizontalSlider(
+						r,
+						value: value1.floatValue,
 						leftValue: value1min.floatValue,
 						rightValue: value1max.floatValue
-						
 					);
+					var changed = EditorGUI.EndChangeCheck();
+					if(changed) {
+						value1.floatValue = newValue;
+					}
+
+					EditorGUI.LabelField(
+						new Rect(rect.x + w * 8, rect.y, w * 2, h),
+						label: newValue.ToString(),
+						style: EditorStyles.textField
+					);
+
+					EditorGUI.EndProperty();
 
 					// EditorGUI.PropertyField(
 					// 	position: new Rect(rect.x + 15f, rect.y, rect.width - 15f, rect.height),
@@ -88,7 +101,7 @@ public class GenesDrawer : PropertyDrawer {
 			};
 			isFirst = false;
 		}
-		return list.GetHeight() + 100;
+		return list.GetHeight();
 	}
 
 	public override void OnGUI(Rect position, SerializedProperty property, GUIContent label) {
@@ -97,13 +110,6 @@ public class GenesDrawer : PropertyDrawer {
 		EditorGUI.BeginProperty(position, label, property);
 
 		list.DoList(position);
-
-		EditorGUI.Slider(
-			new Rect(position.x, position.y + position.height - 100, position.width, EditorGUIUtility.singleLineHeight),
-			value: 0.5f,
-			leftValue: 0f,
-			rightValue: 1f
-		);
 
 		EditorGUI.EndProperty();
 	}

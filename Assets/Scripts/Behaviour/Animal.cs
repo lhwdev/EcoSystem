@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using UnityEditor;
 using UnityEngine;
 
@@ -14,6 +12,9 @@ public enum Sex {
 
 
 public abstract class Animal : LivingEntity {
+	public static float mateRejectTimeout = 30f;
+
+
 	public CreatureAction _currentAction;
 	public CreatureAction currentAction {
 		get => _currentAction;
@@ -56,6 +57,7 @@ public abstract class Animal : LivingEntity {
 	public bool animatingMovement;
 	public bool animatingCritical;
 	public float animationDuration;
+	[HideInInspector]
 	public EntityAnimation entityAnimation;
 	Action onEntityAnimationEnd;
 	public int remainingRestWalkCount = 0;
@@ -100,13 +102,17 @@ public abstract class Animal : LivingEntity {
 	public float drinkDuration => genes.Get<ValueTrait>(drinkDurationTrait).value;
 	public float eatDuration => genes.Get<ValueTrait>(eatDurationTrait).value;
 	public float mateDesire => genes.Get<ValueTrait>(mateDesireTrait).value;
-	public float dynamicMatePointBase;
 	public float childMaturity => genes.Get<ValueTrait>(childMaturityTrait).value;
 	public float maxViewDistance => genes.Get<ValueTrait>(maxViewDistanceTrait).value;
 
-	public PregnantState pregnantState = null;
-
+	public float dynamicMatePointBase;
 	public float currentMateDesire = 0f;
+	public Dictionary<Animal, float> rejectedMateTargets = new Dictionary<Animal, float>();
+	public PregnantState pregnantState = new PregnantState {
+		childs = 0,
+		until = 0f
+	};
+
 
 	protected GameObject debugPanel => transform.Find("AnimalState")?.gameObject;
 	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.activeGameObject == gameObject : true);
@@ -133,7 +139,7 @@ public abstract class Animal : LivingEntity {
 
 	void UpdateMatePointBase() {
 		var desire = mateDesire;
-		dynamicMatePointBase = (0.3f + (float)environment.prng.NextDouble()) / (1f + desire);
+		dynamicMatePointBase = (0.3f + (float)environment.prng.NextDouble()) * (1f + desire);
 	}
 
 
@@ -145,15 +151,31 @@ public abstract class Animal : LivingEntity {
 		var sqrtMass = Mathf.Sqrt(mass);
 		hunger += environment.deltaTime * environment.hungerSpeed / timeToDeathByHunger * sqrtMass;
 		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * sqrtMass;
-		if (pregnantState == null) {
+		if (pregnantState.childs == 0) {
 			currentMateDesire += environment.deltaTime * environment.mateUrgeSpeed * mateDesire / 200;
 		}
 
 		// Animate movement. After moving a single tile, the animal will be able to choose its next action
-		if (entityAnimation != null) {
+		if (pregnantState.childs > 0 && pregnantState.until < environment.time) {
+			var childs = pregnantState.childs;
+			var i = 0;
+			for (; i < childs; i++) { // bring them to the world
+				var mass = childMaturity * this.mass / 5f;
+				if (this.mass - mass < 4f) {
+					// forgive to spawn a child; the animal is too small to spawn a child
+					break;
+				}
+				var child = environment.BornEntityFrom(mother: this, father: mateTarget, mass: mass);
+				environment.SpawnEntity(child);
+				this.mass -= mass * 0.8f; // just adjustment to increase the childs
+			}
+			pregnantState.childs = 0;
+
+			Debug.Log($"{name} born {i} children");
+		} else if (entityAnimation != null) {
 			if (entityAnimation.isCritical) {
 				UpdateEntityAnimation();
-			} else if(animatingMovement && animatingCritical) {
+			} else if (animatingMovement && animatingCritical) {
 				AnimateMove();
 			} else {
 				var changed = ChooseNextAction(required: false);
@@ -187,6 +209,11 @@ public abstract class Animal : LivingEntity {
 		} else if (thirst >= mass) {
 			Die(CauseOfDeath.Thirst);
 		}
+
+
+		// Update scale following to the mass
+		var scale = Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
+		transform.localScale = new Vector3(scale, scale, scale);
 	}
 
 	// Animals choose their next action after each movement step (1 tile),
@@ -198,7 +225,12 @@ public abstract class Animal : LivingEntity {
 		// Decide next action:
 		// Eat if (more hungry than thirsty) or (currently eating and not critically thirsty)
 		bool currentlyEating = currentAction == CreatureAction.Eating && foodTarget && hunger > 0;
-		var hungryPoint = hungryPointBase * mass;
+		float hungryPoint;
+		if (sex == Sex.Female) {
+			hungryPoint = (hungryPointBase - mateDesire * 0.07f) * mass;
+		} else {
+			hungryPoint = hungryPointBase * mass;
+		}
 		var thirstyPoint = thirstyPointBase * mass;
 		if (hunger >= hungryPoint) {
 			if (thirst >= thirstyPoint) {
@@ -303,6 +335,8 @@ public abstract class Animal : LivingEntity {
 
 	protected virtual void FindMate() {
 		currentActionReason = CreatureActionReason.Mate;
+
+		CleanRejectedMateTargets();
 		var mates = environment.SensePotentialMates(this);
 
 		if (mates.Count > 0) {
@@ -354,13 +388,13 @@ public abstract class Animal : LivingEntity {
 					currentAction = CreatureAction.Mating;
 				} else {
 					if (sex == Sex.Male) {
-						StartMoveToCoord(path[pathIndex], 1f, true);
+						StartMoveToCoord(path[pathIndex], duration: 1f, critical: true);
 						pathIndex++;
 					} else {
-						if(Coord.SqrDistance(coord, mateTarget.coord) <= 9) {
+						if (Coord.SqrDistance(coord, mateTarget.coord) <= 6) {
 							// male is so near; just wait
-						} else if(environment.prng.NextDouble() > 0.5f) {
-							StartMoveToCoord(path[pathIndex], 1.3f, true);
+						} else if (environment.prng.NextDouble() > 0.5f) {
+							StartMoveToCoord(path[pathIndex], duration: 1.3f, critical: true);
 							pathIndex++;
 						}
 					}
@@ -431,9 +465,12 @@ public abstract class Animal : LivingEntity {
 					var result = mateTarget.TryMate(this);
 					if (result) {
 						currentMateDesire = 0f;
+						mass -= 0.001f; // a little little bit
 						StartEntityAnimation(new MateAnimation(this), OnMateAnimationEnd);
 					} else {
 						// no-op; keep exploring
+						rejectedMateTargets.Add(mateTarget, environment.time);
+						currentAction = CreatureAction.Exploring;
 					}
 				} else {
 					// just wait for TryMate, mateTarget will be male so call it
@@ -445,10 +482,10 @@ public abstract class Animal : LivingEntity {
 	void OnMateAnimationEnd() {
 		if (sex == Sex.Female) {
 			// became pregnant
-			pregnantState = new PregnantState();
+			pregnantState.childs = environment.prng.Next(1, 4);
+			pregnantState.until = environment.time + 7f;
 			var oneMass = childMaturity * species.defaultMass * (1 + 0.3f * (float)environment.prng.NextDouble());
 		}
-
 		currentMateDesire = 0f;
 		UpdateMatePointBase();
 		ChooseNextAction(required: true);
@@ -457,23 +494,44 @@ public abstract class Animal : LivingEntity {
 
 	// Public mate related methods
 
-	public bool WantsMate() {
-		return (currentAction == CreatureAction.Exploring || currentAction == CreatureAction.GoingToMate) && currentMateDesire > dynamicMatePointBase;
+	public bool WantsMate(Animal with) {
+		CleanRejectedMateTargets();
+		return (currentAction == CreatureAction.Exploring || currentAction == CreatureAction.GoingToMate) &&
+			currentMateDesire > dynamicMatePointBase &&
+			!rejectedMateTargets.ContainsKey(with);
 	}
 
 	public bool TryMate(Animal with) {
-		if (environment.prng.NextDouble() < Mathf.Sqrt(mateDesire)) {
+		CleanRejectedMateTargets();
+		if (rejectedMateTargets.ContainsKey(with)) {
+			return false;
+		}
+		if (environment.prng.NextDouble() < Mathf.Pow(mateDesire, 0.25f)) {
 			// becomes pregnant
+			currentAction = CreatureAction.Mating;
 			currentMateDesire = 0f;
+			mateTarget = with;
 
 			Debug.Log("Mating " + name + " and " + with.name);
 
 			StartEntityAnimation(new MateAnimation(this), OnMateAnimationEnd);
 
 			return true;
+		} else {
+			Debug.Log(name + ": Rejected mate with " + with.name);
+			rejectedMateTargets.Add(with, environment.time);
+			return false;
 		}
+	}
 
-		return false;
+	void CleanRejectedMateTargets() {
+		var now = environment.time;
+
+		foreach (var target in rejectedMateTargets) {
+			if (target.Value + mateRejectTimeout < now) {
+				rejectedMateTargets.Remove(target.Key);
+			}
+		}
 	}
 
 	void AnimateMove() {

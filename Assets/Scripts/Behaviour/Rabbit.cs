@@ -6,7 +6,6 @@ public class Rabbit : Animal {
 	public override Species species => Species.Bunny;
 
 
-
 	public override void Init(Coord coord, Environment environment) {
 		base.Init(coord, environment);
     }

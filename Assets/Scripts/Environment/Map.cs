@@ -153,6 +153,14 @@ public class Map {
 		}
 	}
 
+	public void RemoveAll() {
+		foreach(var tile in map) {
+			tile.Clear();
+		}
+		allEntities.Clear();
+		numEntities = 0;
+	}
+
 	public void Move(LivingEntity e, Coord fromCoord, Coord toCoord) {
 		Remove(e, fromCoord);
 		Add(e, toCoord);

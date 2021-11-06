@@ -283,6 +283,16 @@ struct LightTrait {
 
 [Serializable]
 public class Genes {
+	public static Genes InheritFrom(InheritContext inheritContext, Genes mother, Genes father) {
+		var traits = new Trait[mother.traits.Length];	
+		for(var i = 0; i < traits.Length; i++) {
+			traits[i] = mother.traits[i].InheritWith(inheritContext, father.traits[i]);
+		}
+
+		return new Genes(traits);
+	}
+
+
 	private Dictionary<TraitInfo, Trait> traitMap;
 	public Trait[] traits;
 

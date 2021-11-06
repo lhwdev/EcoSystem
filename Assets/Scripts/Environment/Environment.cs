@@ -1,20 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using TerrainGeneration;
 using UnityEngine;
 
-public static class Temp {
-
-	public static List<Transform> Children(this Transform from) {
-		var list = new List<Transform>();
-		for (var i = 0; i < from.childCount; i++) {
-			list.Add(from.GetChild(i));
-		}
-		return list;
-	}
-}
 
 public class Environment : MonoBehaviour {
 
@@ -66,10 +54,15 @@ public class Environment : MonoBehaviour {
 
 	[HideInInspector]
 	public float deltaTime;
+	[HideInInspector]
+	public float time;
 
 	// debugs
+	[Range(0, 50)]
 	public float hungerSpeed = 1f;
+	[Range(0, 50)]
 	public float thirstSpeed = 1f;
+	[Range(0, 50)]
 	public float mateUrgeSpeed = 1f;
 
 
@@ -85,6 +78,7 @@ public class Environment : MonoBehaviour {
 		inheritContext.variationPrevention = 2f;
 
 		entities = GameObject.Find("Entities");
+		time = Time.time;
 
 		// TODO: run only once on initializing
 #if UNITY_EDITOR
@@ -101,6 +95,7 @@ public class Environment : MonoBehaviour {
 
 	void Update() {
 		deltaTime = Time.deltaTime * timeScale;
+		time += deltaTime;
 	}
 
 	void OnDrawGizmos() {
@@ -178,7 +173,7 @@ public class Environment : MonoBehaviour {
 		for (int i = 0; i < visibleEntities.Count; i++) {
 			var visibleAnimal = (Animal)visibleEntities[i];
 			if (visibleAnimal != self && visibleAnimal.sex != self.sex) {
-				if (visibleAnimal.WantsMate()) {
+				if (visibleAnimal.WantsMate(with: self) && !self.rejectedMateTargets.ContainsKey(visibleAnimal)) {
 					potentialMates.Add(visibleAnimal);
 				}
 			}
@@ -416,9 +411,31 @@ public class Environment : MonoBehaviour {
 		currentPopuations = populations.ToArray();
 	}
 
-	LivingEntity NewEntity(Population population, Coord coord) {
-		var entity = Instantiate(population.prefab);
+	public LivingEntity NewEntity(LivingEntity prefab, Coord coord) {
+		var entity = Instantiate(prefab);
+		entity.prefab = prefab;
+		entity.genes = new Genes(
+			inheritContext: inheritContext,
+			infos: entity.CreateTraitInfos()
+		);
 		entity.Init(coord, this);
+		entity.InitNew();
+
+		return entity;
+	}
+
+	public LivingEntity BornEntityFrom(LivingEntity mother, LivingEntity father, float mass) {
+		var entity = Instantiate(mother.prefab);
+		entity.prefab = mother.prefab;
+		entity.genes = Genes.InheritFrom(
+			inheritContext: inheritContext,
+			mother: mother.genes,
+			father: father.genes
+		);
+
+		entity.Init(mother.coord, this);
+		entity.mass = mass;
+		entity.InitInherit(mother, father);
 
 		return entity;
 	}
@@ -435,12 +452,22 @@ public class Environment : MonoBehaviour {
 		return created.transform;
 	}
 
-	void SpawnEntity(LivingEntity entity) {
+	public void SpawnEntity(LivingEntity entity) {
 		speciesMaps[entity.species].Add(entity, entity.coord);
 		entity.transform.SetParent(EntitiesObjectFor(entity.species));
 	}
 
-	void SpawnInitialPopulations() {
+	public void ClearPopulations() {
+		foreach (var species in speciesMaps.Keys) {
+			var map = speciesMaps[species];
+			foreach(var entity in map.allEntities) {
+				UnityEngine.Object.Destroy(entity);
+			}
+			map.RemoveAll();
+		}
+	}
+
+	public void SpawnInitialPopulations() {
 
 		var spawnPrng = new System.Random(seed);
 		var spawnCoords = new List<Coord>(walkableCoords);
@@ -454,7 +481,7 @@ public class Environment : MonoBehaviour {
 				int spawnCoordIndex = spawnPrng.Next(0, spawnCoords.Count);
 				Coord coord = spawnCoords[spawnCoordIndex];
 				spawnCoords.RemoveAt(spawnCoordIndex);
-				var entity = NewEntity(pop, coord);
+				var entity = NewEntity(pop.prefab, coord);
 				SpawnEntity(entity);
 			}
 		}
