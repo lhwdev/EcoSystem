@@ -9,6 +9,7 @@ public struct InheritContext {
 	public System.Random random;
 	public float variationRate;
 	public float variationPrevention;
+	public bool debug;
 
 	public LivingEntity debugCurrentEntity;
 
@@ -19,7 +20,7 @@ public struct InheritContext {
 
 	public bool IsVariation(TraitInfo traitInfo) {
 		var isVariation = (float)random.NextDouble() < variationRate;
-		if (isVariation) {
+		if (isVariation && debug) {
 			Debug.Log($"{debugCurrentEntity}: Variation happened for {traitInfo.name}");
 		}
 		return isVariation;

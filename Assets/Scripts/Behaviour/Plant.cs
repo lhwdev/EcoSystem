@@ -16,7 +16,7 @@ public class Plant : LivingEntity {
 	}
 
 	void UpdateReproduceTime() {
-		reproduceTime = environment.time + 40f + ((float)environment.prng.NextDouble() * 50f);
+		reproduceTime = environment.time + 70f + ((float)environment.prng.NextDouble() * 50f);
 	}
 
 	Coord FindEmptyTile() {
@@ -49,7 +49,7 @@ public class Plant : LivingEntity {
 
 	void Update() {
 		// Photosynthesis
-		mass += environment.deltaTime / 150f;
+		mass += environment.deltaTime / 200f;
 
 		if (reproduceTime < environment.time) {
 			Reproduce();

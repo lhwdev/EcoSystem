@@ -166,11 +166,14 @@ MonoBehaviour:
   - prefab: {fileID: 1800606245811395601, guid: 0e0ac3719c48b4615860159e795eb1ca,
       type: 3}
     count: 0
+  tombstone: {fileID: 3184728568738012656, guid: a8122511324d7f449a8821dc766a2386,
+    type: 3}
   showState: 1
   showStateForSelected: 1
   debugStateChange: 1
   debugStateChangeForSelected: 1
   debugMate: 0
+  debugGene: 0
   showStatePrefab: {fileID: 1284942079389291577, guid: 749cb1c85a647fb408be78ecaba0dbd0,
     type: 3}
   showStateScale: 1
@@ -701,7 +704,7 @@ MonoBehaviour:
   walkSpeed: 9
   perspective: 1
   flyWalkToWorld: 1
-  followWalker: 1
+  followWalker: 0
   followSelection: 0
   trackEntity: 1
 --- !u!1 &973291779

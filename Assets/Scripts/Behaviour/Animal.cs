@@ -222,7 +222,10 @@ public abstract class Animal : LivingEntity {
 		var scale = 0.3f + 0.7f * Mathf.Sqrt(mass / species.defaultMass); // sqrt is used to make the scale approach to 1
 		transform.localScale = Vector3.one * scale;
 
-		material.color = new Color(r: hunger / (hungryPointBase * mass), g: thirst / (thirstyPointBase * mass), b: Mathf.Min(1, Mathf.Max(0, actualMateDesire / 2)));
+		float Coerce(float value) {
+			return Mathf.Clamp(value, 0f, 1f);
+		}
+		material.color = new Color(r: 1 - Coerce(hunger / (hungryPointBase * mass)), g: 1 - Coerce(thirst / (thirstyPointBase * mass)), b: 1 - Coerce(actualMateDesire / 2));
 	}
 
 	// Animals choose their next action after each movement step (1 tile),
@@ -497,8 +500,8 @@ public abstract class Animal : LivingEntity {
 	void OnMateAnimationEnd() {
 		if (sex == Sex.Female) {
 			// became pregnant
-			pregnantState.childs = environment.prng.Next(1, 4);
-			pregnantState.until = environment.time + 7f;
+			pregnantState.childs = environment.prng.Next(1, 5);
+			pregnantState.until = environment.time + 6f;
 			var oneMass = childMaturity * species.defaultMass * (1 + 0.3f * (float)environment.prng.NextDouble());
 		}
 		currentMateDesire = 0f;
@@ -521,7 +524,7 @@ public abstract class Animal : LivingEntity {
 		if (rejectedMateTargets.ContainsKey(with)) {
 			return false;
 		}
-		if (environment.prng.NextDouble() < Mathf.Pow(mateDesire, 0.25f)) {
+		if (environment.prng.NextDouble() < Mathf.Pow(mateDesire, 0.4f)) {
 			// becomes pregnant
 			currentAction = CreatureAction.Mating;
 			currentMateDesire = 0f;

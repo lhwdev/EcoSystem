@@ -19,6 +19,7 @@ public class Environment : MonoBehaviour {
 	[Header("Populations")]
 	public PopulationInfo[] currentPopuations;
 	public Population[] initialPopulations;
+	public GameObject tombstone;
 
 	[Header("Debug")]
 	public bool showState;
@@ -26,6 +27,7 @@ public class Environment : MonoBehaviour {
 	public bool debugStateChange;
 	public bool debugStateChangeForSelected;
 	public bool debugMate;
+	public bool debugGene;
 	public GameObject showStatePrefab;
 	public float showStateScale = 1f;
 	public bool showMapDebug;
@@ -106,6 +108,10 @@ public class Environment : MonoBehaviour {
 		time += deltaTime;
 	}
 
+	void OnValidate() {
+		inheritContext.debug = debugGene;
+	}
+
 	void OnDrawGizmos() {
 
 		/* 
@@ -130,6 +136,15 @@ public class Environment : MonoBehaviour {
 	public void RegisterDeath(LivingEntity entity, CauseOfDeath cause) {
 		speciesMaps[entity.species].Remove(entity, entity.coord);
 		Debug.Log("[Environment] " + entity.species + " died because of " + cause);
+
+		if (entity is Animal) {
+			var animal = entity as Animal;
+			var tombstone = Instantiate(this.tombstone);
+			tombstone.transform.SetPositionAndRotation(animal.transform.position + Vector3.up * 2, animal.transform.rotation);
+
+			var meshRenderer = tombstone.transform.GetComponentInChildren<MeshRenderer>();
+			meshRenderer.materials[0].color = animal.material.color;
+		}
 
 		UpdateCurrentPopulations();
 	}
@@ -469,13 +484,13 @@ public class Environment : MonoBehaviour {
 		inheritContext.debugCurrentEntity = null;
 
 		entity.PostInit();
-		
+
 		return entity;
 	}
 
 	Transform EntitiesObjectFor(Species species) {
 		var found = entities.transform.Find(species.name);
-		if(found != null) {
+		if (found != null) {
 			return found;
 		}
 
@@ -493,7 +508,7 @@ public class Environment : MonoBehaviour {
 	public void ClearPopulations() {
 		foreach (var species in speciesMaps.Keys) {
 			var map = speciesMaps[species];
-			foreach(var entity in map.allEntities) {
+			foreach (var entity in map.allEntities) {
 				UnityEngine.Object.Destroy(entity);
 			}
 			map.RemoveAll();
@@ -550,7 +565,7 @@ public class Environment : MonoBehaviour {
 
 	private int Coerce(int number, int max) {
 		if (number >= 0) {
-			if(number <= max) {
+			if (number <= max) {
 				return number;
 			} else {
 				return max;
@@ -591,8 +606,8 @@ public class Environment : MonoBehaviour {
 
 	// Debug
 	public bool DebugStateChange(LivingEntity self) {
-		if(debugStateChange) {
-			if(debugStateChangeForSelected) {
+		if (debugStateChange) {
+			if (debugStateChangeForSelected) {
 				return Selection.Contains(self);
 			} else {
 				return true;

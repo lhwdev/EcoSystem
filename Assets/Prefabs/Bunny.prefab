@@ -44,7 +44,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bedaaf57bfc794db9841c3ef111f20f3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  id: 
   colourMaterialIndex: 2
+  prefab: {fileID: 0}
   coord:
     x: 0
     y: 0
@@ -54,7 +56,11 @@ MonoBehaviour:
     y: 0
   mass: 0
   environment: {fileID: 0}
-  currentAction: 0
+  genes:
+    lightTraits: []
+    lightTraitsChanged: 0
+  bornAt: 0
+  _currentAction: 0
   currentActionReason: 0
   material: {fileID: 2100000, guid: 0e27191982d3a4c009146d1cb7557207, type: 2}
   sexColorMaterialIndex: 2
@@ -63,10 +69,10 @@ MonoBehaviour:
   timeBetweenActionChoices: 1
   timeToDeathByHunger: 100
   timeToDeathByThirst: 90
-  hungryPointBase: 0.1
-  thirstyPointBase: 0.8
+  hungryPointBase: 0.25
+  thirstyPointBase: 0.25
   matePointBase: 0.4
-  criticalPercent: 0.7
+  criticalPercent: 0.65
   hunger: 0
   thirst: 0
   animatingMovement: 0
@@ -82,7 +88,11 @@ MonoBehaviour:
   moveStartPos: {x: 0, y: 0, z: 0}
   moveTargetPos: {x: 0, y: 0, z: 0}
   moveTime: 0
+  dynamicMatePointBase: 0
   currentMateDesire: 0
+  pregnantState:
+    childs: 0
+    until: 0
 --- !u!1001 &322534139445717557
 PrefabInstance:
   m_ObjectHideFlags: 0
