@@ -54,11 +54,11 @@ MonoBehaviour:
   mapCoord:
     x: 0
     y: 0
-  mass: 0
   environment: {fileID: 0}
   genes:
     lightTraits: []
     lightTraitsChanged: 0
+  mass: 0
   bornAt: 0
   _currentAction: 0
   currentActionReason: 0
@@ -72,7 +72,7 @@ MonoBehaviour:
   hungryPointBase: 0.25
   thirstyPointBase: 0.25
   matePointBase: 0.4
-  criticalPercent: 0.65
+  criticalPercent: 0.7
   hunger: 0
   thirst: 0
   animatingMovement: 0

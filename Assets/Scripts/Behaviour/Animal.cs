@@ -35,12 +35,16 @@ public abstract class Animal : LivingEntity {
 	public float timeBetweenActionChoices = 1;
 	public float timeToDeathByHunger = 100;
 	public float timeToDeathByThirst = 90;
+	[Range(0, 1)]
 	public float hungryPointBase = .1f;
+	[Range(0, 1)]
 	public float thirstyPointBase = .8f;
+	[Range(0, 1)]
 	public float matePointBase = .4f;
 
 
 	public float criticalPercent = 0.7f;
+	[Range(0, 1)]
 
 	// Visual settings:
 	float moveArcHeight = .2f;
@@ -86,7 +90,9 @@ public abstract class Animal : LivingEntity {
 	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, defaultUrge: 4f);
 	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, defaultUrge: 1.2f);
 	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, defaultUrge: 1.4f);
-	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 20f, min: 5f, max: 50f, defaultUrge: 3f);
+	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 20f, min: 5f, max: 50f, defaultUrge: 2f);
+	public static ValueTraitInfo fleeDetectDistanceTrait = new ValueTraitInfo("fleeDetectDistance", defaultValue: 7f, min: 3f, max: 20f, defaultUrge: 1.5f);
+
 
 	public static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
 		sexTrait,
@@ -96,6 +102,7 @@ public abstract class Animal : LivingEntity {
 		mateDesireTrait,
 		childMaturityTrait,
 		maxViewDistanceTrait,
+		fleeDetectDistanceTrait,
 	});
 
 	public Sex sex => genes.Get<BinaryTrait>(sexTrait).value ? Sex.Male : Sex.Female;
@@ -105,6 +112,8 @@ public abstract class Animal : LivingEntity {
 	public float mateDesire => genes.Get<ValueTrait>(mateDesireTrait).value;
 	public float childMaturity => genes.Get<ValueTrait>(childMaturityTrait).value;
 	public float maxViewDistance => genes.Get<ValueTrait>(maxViewDistanceTrait).value;
+	public float fleeDetectDistance => genes.Get<ValueTrait>(fleeDetectDistanceTrait).value;
+
 
 	// younger animals consume more
 	public float energyConsumption => 2f / (age * 0.03f + 1f) + 1f;
@@ -134,7 +143,6 @@ public abstract class Animal : LivingEntity {
 		// Set material to the instance material
 		var meshRenderer = transform.GetComponentInChildren<MeshRenderer>();
 		material = meshRenderer.materials[sexColorMaterialIndex];
-		material.color = sex == Sex.Male ? maleColour : femaleColour;
 
 		moveFromCoord = coord;
 		UpdateMatePointBase();
@@ -175,10 +183,10 @@ public abstract class Animal : LivingEntity {
 				this.mass -= mass * 0.8f; // just adjustment to increase the childs
 			}
 			pregnantState.childs = 0;
-			if(i > 0) {
+			if (i > 0) {
 				SoundEfx.instance.pop.Play();
 			}
-			if(environment.debugMate) Debug.Log($"{name} born {i} children");
+			if (environment.debugMate) Debug.Log($"{name} born {i} children");
 		} else if (entityAnimation != null) {
 			if (entityAnimation.isCritical) {
 				UpdateEntityAnimation();
@@ -225,7 +233,15 @@ public abstract class Animal : LivingEntity {
 		float Coerce(float value) {
 			return Mathf.Clamp(value, 0f, 1f);
 		}
-		material.color = new Color(r: 1 - Coerce(hunger / (hungryPointBase * mass)), g: 1 - Coerce(thirst / (thirstyPointBase * mass)), b: 1 - Coerce(actualMateDesire / 2));
+
+		if (environment.debugColor) {
+			var hungerColor = new Color(r: Coerce(hunger / (hungryPointBase * mass)), g: 0f, b: 0f);
+			var thirstColor = new Color(r: 0f, g: Coerce(thirst / (thirstyPointBase * mass)), b: 0f);
+			var mateDesireColor = new Color(r: 0f, g: 0f, b: Coerce(actualMateDesire / (dynamicMatePointBase * mass)));
+			material.color = hungerColor / 3f + thirstColor / 3f + mateDesireColor / 3f;
+		} else {
+			material.color = sex == Sex.Male ? maleColour : femaleColour;
+		}
 	}
 
 	// Animals choose their next action after each movement step (1 tile),
@@ -244,19 +260,45 @@ public abstract class Animal : LivingEntity {
 			hungryPoint = hungryPointBase * mass;
 		}
 		var thirstyPoint = thirstyPointBase * mass;
-		if (hunger >= hungryPoint) {
-			if (thirst >= thirstyPoint) {
-				if (hunger >= thirst || currentlyEating && hunger < criticalPercent * mass) {
-					FindFood();
+		var predators = environment.SensePredators(this);
+		var hasPredators = predators.Count > 0;
+
+		var hungry = hunger > hungryPoint;
+		var criticalHungry = hunger > criticalPercent * mass;
+		var thirsty = thirst > thirstyPoint;
+		var criticalThirsty = thirst > criticalPercent * mass;
+
+		if (hungry) {
+			if (thirsty) {
+				if (hunger >= thirst || currentlyEating || (criticalHungry && !criticalThirsty)) {
+					if (hasPredators && !criticalHungry) {
+						Flee(predators);
+					} else {
+						FindFood();
+					}
 				} else { // More thirsty than hungry
-					FindWater();
+					if (hasPredators && !criticalThirsty) {
+						Flee(predators);
+					} else {
+						FindWater();
+					}
 				}
 			} else {
-				FindFood();
+				if (hasPredators && !criticalHungry) {
+					Flee(predators);
+				} else {
+					FindFood();
+				}
 			}
 		} else {
 			if (thirst >= thirstyPoint) {
-				FindWater();
+				if (hasPredators && !criticalThirsty) {
+					Flee(predators);
+				} else {
+					FindWater();
+				}
+			} else if (hasPredators) {
+				Flee(predators);
 			} else {
 				if (actualMateDesire > dynamicMatePointBase) {
 					FindMate();
@@ -367,6 +409,36 @@ public abstract class Animal : LivingEntity {
 		}
 	}
 
+	protected virtual void Flee(List<Animal> predators) {
+		currentActionReason = CreatureActionReason.Flee;
+
+		var direction = environment.FleeDirection(this, predators);
+		var target = new Vector2(coord.x, coord.y) + direction;
+		var walkables = environment.walkableNeighboursMap[coord.x, coord.y];
+
+		float distance = float.PositiveInfinity;
+		Coord tile = Coord.invalid;
+		foreach (var walkable in walkables) {
+			var asVector = new Vector2(walkable.x, walkable.y);
+			var currentDist = Vector2.Distance(asVector, target);
+
+			if (currentDist < distance) {
+				distance = currentDist;
+				tile = walkable;
+			}
+		}
+
+		if (tile == Coord.invalid) {
+			Debug.Log("no tile around??");
+			return;
+		}
+
+		currentAction = CreatureAction.Flee;
+		// CreatePath(tile); // do not work for neighboring tiles
+		// Debug.Log($"flee to {tile}");
+		StartMoveToCoord(tile, duration: 1f, critical: true);
+	}
+
 	// When choosing from multiple food sources, the one with the lowest penalty + highest visibility will be selected
 	protected virtual float FoodPreference(LivingEntity self, LivingEntity food) {
 		return (Mathf.Sqrt(food.mass + 1f) - 1f) / Coord.SqrDistance(self.coord, food.coord);
@@ -397,8 +469,13 @@ public abstract class Animal : LivingEntity {
 					StartMoveToCoord(path[pathIndex], 1f, true);
 					pathIndex++;
 				}
-
 				break;
+
+			// case CreatureAction.Flee:
+			// 	Debug.Log($"flee path = {path == null}");
+			// 	StartMoveToCoord(path[pathIndex], 1f, true);
+			// 	pathIndex++;
+			// 	break;
 
 			case CreatureAction.GoingToMate:
 				if (Coord.AreNeighbours(coord, mateTarget.coord)) {
@@ -440,7 +517,7 @@ public abstract class Animal : LivingEntity {
 		moveStartPos = transform.position;
 		moveTargetPos = environment.tileCentres[moveTargetCoord.x, moveTargetCoord.y];
 		animatingMovement = true;
-		animationDuration = duration;
+		animationDuration = duration * (0.8f + 0.4f * (float)environment.prng.NextDouble()) * (1 + Mathf.Min(0f, hunger) / mass / 2f);
 		animatingCritical = critical;
 
 		bool diagonalMove = Coord.SqrDistance(moveFromCoord, moveTargetCoord) > 1;
@@ -466,6 +543,13 @@ public abstract class Animal : LivingEntity {
 						eatAmount = ((Plant)foodTarget).Consume(eatAmount);
 						hunger -= eatAmount;
 						mass += eatAmount * 0.05f; // TODO: balance appropriate heat efficiency
+					} else if (foodTarget is Animal) {
+						var target = foodTarget as Animal;
+						if (environment.prng.NextDouble() < 0.8) {
+							hunger -= target.mass;
+							mass += target.mass * 0.05f;
+							target.Die(CauseOfDeath.Eaten);
+						}
 					}
 				}
 				break;
@@ -553,7 +637,7 @@ public abstract class Animal : LivingEntity {
 			}
 		}
 
-		if(toRemove.Count > 0) {
+		if (toRemove.Count > 0) {
 			foreach (var target in toRemove) {
 				rejectedMateTargets.Remove(target);
 			}

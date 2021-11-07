@@ -6,6 +6,7 @@
     GoingToFood,
     GoingToWater,
     GoingToMate,
+    Flee,
     Eating,
     Drinking,
     Mating
@@ -16,5 +17,6 @@ public enum CreatureActionReason {
     Rest,
     Thirsty,
     Hungry,
+    Flee,
     Mate
 }

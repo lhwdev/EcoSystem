@@ -128,7 +128,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d84f49f076954fa469e887ce6bc2f0fc, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  id: 
   colourMaterialIndex: 0
+  prefab: {fileID: 0}
   coord:
     x: 0
     y: 0
@@ -136,9 +138,13 @@ MonoBehaviour:
   mapCoord:
     x: 0
     y: 0
-  mass: 0
   environment: {fileID: 0}
-  currentAction: 0
+  genes:
+    lightTraits: []
+    lightTraitsChanged: 0
+  mass: 0
+  bornAt: 0
+  _currentAction: 0
   currentActionReason: 0
   material: {fileID: 0}
   sexColorMaterialIndex: 0
@@ -147,8 +153,8 @@ MonoBehaviour:
   timeBetweenActionChoices: 1
   timeToDeathByHunger: 100
   timeToDeathByThirst: 90
-  hungryPointBase: 0.1
-  thirstyPointBase: 0.8
+  hungryPointBase: 0.3
+  thirstyPointBase: 0.25
   matePointBase: 0.4
   criticalPercent: 0.7
   hunger: 0
@@ -166,4 +172,8 @@ MonoBehaviour:
   moveStartPos: {x: 0, y: 0, z: 0}
   moveTargetPos: {x: 0, y: 0, z: 0}
   moveTime: 0
+  dynamicMatePointBase: 0
   currentMateDesire: 0
+  pregnantState:
+    childs: 0
+    until: 0

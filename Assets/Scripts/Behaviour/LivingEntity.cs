@@ -16,14 +16,14 @@ public abstract class LivingEntity : MonoBehaviour {
 	[HideInInspector]
 	public Coord mapCoord;
 
-	public float mass;
 
 	[HideInInspector]
 	public Environment environment;
 	protected bool dead;
 
 	public Genes genes;
-	
+
+	public float mass;
 	public float bornAt;
 	public float age {
 		get => environment.time - bornAt;

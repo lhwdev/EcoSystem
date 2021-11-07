@@ -48,6 +48,19 @@ public class MainCamera : MonoBehaviour {
 	}
 
 	private void Update() {
+		if(Input.GetKeyDown(KeyCode.F)) {
+			if(followSelection) {
+				followSelection = false;
+				followWalker = true;
+			} else if(followWalker) {
+				followWalker = false;
+				followSelection = false;
+			} else {
+				followSelection = true;
+				followWalker = false;
+			}
+		}
+
 		var position = transform.position;
 		var follow = this.follow;
 		var followTarget = this.followTarget;

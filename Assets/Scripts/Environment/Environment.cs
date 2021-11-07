@@ -28,6 +28,7 @@ public class Environment : MonoBehaviour {
 	public bool debugStateChangeForSelected;
 	public bool debugMate;
 	public bool debugGene;
+	public bool debugColor;
 	public GameObject showStatePrefab;
 	public float showStateScale = 1f;
 	public bool showMapDebug;
@@ -218,7 +219,7 @@ public class Environment : MonoBehaviour {
 	}
 
 	public Surroundings Sense(Animal self) {
-		var closestPlant = speciesMaps[Species.Plant].ClosestEntity(self.coord, self.maxViewDistance);
+		var closestPlant = speciesMaps[self.species.diets[0]].ClosestEntity(self.coord, self.maxViewDistance);
 		var surroundings = new Surroundings();
 		surroundings.nearestFoodSource = closestPlant;
 		surroundings.nearestWaterTile = closestVisibleWaterMap[self.coord.x, self.coord.y];
@@ -560,6 +561,67 @@ public class Environment : MonoBehaviour {
 			}
 			print(s);
 		}
+	}
+
+
+
+	List<Animal> SensePredator(Animal self, Species predatorSpecies) {
+		Map speciesMap = speciesMaps[predatorSpecies];
+		List<LivingEntity> visibleEntities = speciesMap.GetEntities(self.coord, Math.Min(self.maxViewDistance, self.fleeDetectDistance));
+		var predators = new List<Animal>();
+
+		for (int i = 0; i < visibleEntities.Count; i++) {
+			var visibleAnimal = (Animal)visibleEntities[i];
+			predators.Add(visibleAnimal);
+		}
+
+		return predators;
+	}
+
+	public List<Animal> SensePredators(Animal self) {
+		var predators = new List<Animal>();
+		foreach (var predator in predatorsBySpecies[self.species]) {
+			predators.AddRange(SensePredator(self, predator));
+		}
+		return predators;
+	}
+
+	public Vector2 FleeDirection(Animal self, List<Animal> predators) {
+		var vector = Vector2.zero;
+
+		foreach (var predator in predators) {
+			var delta = self.coord - predator.coord;
+			vector += new Vector2(delta.x, delta.y) * (0.5f + predator.moveSpeed * 1f);
+		}
+
+		return vector.normalized;
+	}
+
+
+	List<Animal> SensePrey(Animal self, Species preySpecies) {
+		Map speciesMap = speciesMaps[preySpecies];
+		List<LivingEntity> visibleEntities = speciesMap.GetEntities(self.coord, self.maxViewDistance);
+		var preys = new List<Animal>();
+
+		for (int i = 0; i < visibleEntities.Count; i++) {
+			var visibleAnimal = (Animal)visibleEntities[i];
+			preys.Add(visibleAnimal);
+		}
+
+		return preys;
+	}
+
+	public List<Animal> SensePreys(Animal self) {
+		var preys = new List<Animal>();
+		foreach (var preyKind in preyBySpecies[self.species]) {
+			preys.AddRange(SensePrey(self, preyKind));
+		}
+		return preys;
+	}
+
+	public Animal SenseBestPrey(Animal self) {
+		var preys = SensePreys(self);
+		return preys.OrderBy(p => p.mass / (1 + Coord.Distance(p.coord, self.coord))).Last();
 	}
 
 
