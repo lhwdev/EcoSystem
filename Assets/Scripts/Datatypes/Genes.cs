@@ -46,6 +46,10 @@ public struct InheritContext {
 
 
 	public float VariationTraitFloat(float min, float max, float center, float centerizeFraction) {
+		if(min == max) {
+			return min;
+		}
+		
 		var k = (center - min) / (max - min);
 		var x = (float)random.NextDouble();
 		var n = variationPrevention * centerizeFraction;
