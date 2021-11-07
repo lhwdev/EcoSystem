@@ -458,7 +458,7 @@ public abstract class Animal : LivingEntity {
 		currentAction = CreatureAction.Flee;
 		// CreatePath(tile); // do not work for neighboring tiles
 		// Debug.Log($"flee to {tile}");
-		StartMoveToCoord(tile, duration: .8f + .25f * (float)environment.prng.NextDouble(), critical: true);
+		StartMoveToCoord(tile, duration: .7f + .35f * (float)environment.prng.NextDouble(), critical: true);
 	}
 
 	// When choosing from multiple food sources, the one with the lowest penalty + highest visibility will be selected
