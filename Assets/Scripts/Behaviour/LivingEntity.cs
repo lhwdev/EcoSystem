@@ -31,7 +31,7 @@ public abstract class LivingEntity : MonoBehaviour {
 	}
 
 
-	public static TraitInfo maxAgeTrait = new ValueTraitInfo("maxAge", defaultValue: 300f, min: 300f, max: 300f);
+	public static TraitInfo maxAgeTrait = new ValueTraitInfo("maxAge", defaultValue: 300f, min: 299f, max: 301f);
 
 	public static TraitInfo[] LivingEntityDefaultTraitInfos = {
 		maxAgeTrait,

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class Plant : LivingEntity {
@@ -16,16 +17,21 @@ public class Plant : LivingEntity {
 	}
 
 	void UpdateReproduceTime() {
-		reproduceTime = environment.time + 70f + ((float)environment.prng.NextDouble() * 50f);
+		reproduceTime = environment.time + 70f + ((float)environment.prng.NextDouble() * 60f);
 	}
 
 	Coord FindEmptyTile() {
 		var surrounding = environment.walkableNeighboursMap[coord.x, coord.y];
-
+		var emptyTiles = new List<Coord>();
 		foreach (var c in surrounding) {
 			if (!environment.speciesMaps[Species.Plant].GetRegion(c).Any(entity => entity.coord == c)) {
-				return c;
+				emptyTiles.Add(c);
 			}
+		}
+
+		var ratio = (float)emptyTiles.Count / surrounding.Length;
+		if(ratio > 0.43f) {
+			return emptyTiles[environment.prng.Next(emptyTiles.Count)];
 		}
 
 		return Coord.invalid;

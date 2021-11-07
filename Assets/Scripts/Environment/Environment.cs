@@ -20,6 +20,9 @@ public class Environment : MonoBehaviour {
 	public PopulationInfo[] currentPopuations;
 	public Population[] initialPopulations;
 	public GameObject tombstone;
+	[Header("Genes")]
+	[Range(0, 1)]
+	public float variationRate;
 
 	[Header("Debug")]
 	public bool showState;
@@ -85,7 +88,7 @@ public class Environment : MonoBehaviour {
 	void Start() {
 		prng = new System.Random();
 		inheritContext.random = prng;
-		inheritContext.variationRate = 0.005f;
+		inheritContext.variationRate = variationRate;
 		inheritContext.variationPrevention = 1f;
 
 		entities = GameObject.Find("Entities");
@@ -111,6 +114,7 @@ public class Environment : MonoBehaviour {
 
 	void OnValidate() {
 		inheritContext.debug = debugGene;
+		inheritContext.variationRate = variationRate;
 	}
 
 	void OnDrawGizmos() {
@@ -138,7 +142,7 @@ public class Environment : MonoBehaviour {
 		speciesMaps[entity.species].Remove(entity, entity.coord);
 		Debug.Log("[Environment] " + entity.species + " died because of " + cause);
 
-		if (entity is Animal) {
+		if (entity is Animal && this.tombstone != null) {
 			var animal = entity as Animal;
 			var tombstone = Instantiate(this.tombstone);
 			tombstone.transform.SetPositionAndRotation(animal.transform.position + Vector3.up * 2, animal.transform.rotation);
@@ -397,7 +401,7 @@ public class Environment : MonoBehaviour {
 		float minCol = .8f;
 
 		var spawnPrng = new System.Random(seed);
-		var treeHolder = new GameObject("Tree holder").transform;
+		var treeHolder = GameObject.Find("Tree holder").transform;
 		walkableCoords = new List<Coord>();
 
 		for (int y = 0; y < terrainData.size; y++) {
@@ -561,6 +565,14 @@ public class Environment : MonoBehaviour {
 			}
 			print(s);
 		}
+	}
+
+	public string DumpCurrentPopulationKinds() {
+		return currentPopuations.Aggregate("", (acc, pop) => acc + (pop.species + ","));
+	}
+
+	public string DumpCurrentPopulationCount() {
+		return currentPopuations.Aggregate("", (acc, pop) => acc + (pop.count + ","));
 	}
 
 
