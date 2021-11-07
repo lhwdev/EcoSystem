@@ -161,9 +161,9 @@ public abstract class Animal : LivingEntity {
 		UpdateDebugPanel();
 
 		// Increase hunger and thirst over time
-		var sqrtMass = Mathf.Sqrt(mass);
-		hunger += environment.deltaTime * environment.hungerSpeed * energyConsumption / timeToDeathByHunger * sqrtMass;
-		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * sqrtMass;
+		var massFraction = Mathf.Pow(mass, 0.8f);
+		hunger += environment.deltaTime * environment.hungerSpeed * energyConsumption / timeToDeathByHunger * massFraction;
+		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * massFraction;
 		if (pregnantState.childs == 0) {
 			currentMateDesire += environment.deltaTime * environment.mateUrgeSpeed * mateDesire / 100;
 		}
@@ -304,7 +304,21 @@ public abstract class Animal : LivingEntity {
 					FindMate();
 				} else {
 					if (!required) return false;
-					Rest();
+
+					// If food is close enough and not full a lot, why not eat it?
+					if (hunger > -1f) {
+						var food = environment.SenseFood(this, FoodPreference);
+						if(food != null && Coord.SqrDistance(coord, food.coord) < 3f) {
+							currentAction = CreatureAction.GoingToFood;
+							currentActionReason = CreatureActionReason.PreHungry;
+							foodTarget = food;
+							CreatePath(foodTarget.coord);
+						} else {
+							Rest();
+						}
+					} else {
+						Rest();
+					}
 				}
 			}
 		}
@@ -374,7 +388,6 @@ public abstract class Animal : LivingEntity {
 			currentAction = CreatureAction.GoingToFood;
 			foodTarget = foodSource;
 			CreatePath(foodTarget.coord);
-
 		} else {
 			currentAction = CreatureAction.Exploring;
 		}
@@ -517,7 +530,7 @@ public abstract class Animal : LivingEntity {
 		moveStartPos = transform.position;
 		moveTargetPos = environment.tileCentres[moveTargetCoord.x, moveTargetCoord.y];
 		animatingMovement = true;
-		animationDuration = duration * (0.8f + 0.4f * (float)environment.prng.NextDouble()) * (1 + Mathf.Min(0f, hunger) / mass / 2f);
+		animationDuration = duration * (0.8f + 0.4f * (float)environment.prng.NextDouble()) * (1 + Mathf.Max(0f, hunger) / mass / 2f);
 		animatingCritical = critical;
 
 		bool diagonalMove = Coord.SqrDistance(moveFromCoord, moveTargetCoord) > 1;

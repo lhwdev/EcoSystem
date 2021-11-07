@@ -17,6 +17,7 @@ public enum CreatureActionReason {
     Rest,
     Thirsty,
     Hungry,
+    PreHungry, // not hungry yet, but just food is near
     Flee,
     Mate
 }

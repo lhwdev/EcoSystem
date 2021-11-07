@@ -25,7 +25,7 @@ public class Statistics : MonoBehaviour {
 			header = (env) => "Bunny",
 			update = (env) => {
 				var all = env.speciesMaps[Species.Bunny].allEntities;
-				return all.Average(e => (e as Animal).moveSpeed).ToString();
+				return all.Count == 0 ? "?" : all.Average(e => (e as Animal).moveSpeed).ToString();
 			},
 		},
 		new StatisticItem {
