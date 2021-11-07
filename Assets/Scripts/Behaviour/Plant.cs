@@ -17,7 +17,7 @@ public class Plant : LivingEntity {
 	}
 
 	void UpdateReproduceTime() {
-		reproduceTime = environment.time + 70f + ((float)environment.prng.NextDouble() * 60f);
+		reproduceTime = environment.time + 50f + ((float)environment.prng.NextDouble() * 60f);
 	}
 
 	Coord FindEmptyTile() {
@@ -30,7 +30,7 @@ public class Plant : LivingEntity {
 		}
 
 		var ratio = (float)emptyTiles.Count / surrounding.Length;
-		if(ratio > 0.43f) {
+		if (ratio > 0.43f) {
 			return emptyTiles[environment.prng.Next(emptyTiles.Count)];
 		}
 
@@ -39,15 +39,22 @@ public class Plant : LivingEntity {
 
 	void Reproduce() {
 		if (mass > 3f) {
-			var coord = FindEmptyTile();
+			Coord coord = Coord.invalid;
+			// 1. random fly
+			if (environment.prng.NextDouble() < 0.7) {
+				coord = this.coord + new Coord(environment.prng.Next(-5, 6), environment.prng.Next(-5, 6));
+			}
+
+			// 2. nearby
+			if (!environment.Walkable(coord.x, coord.y) || environment.speciesMaps[Species.Plant].GetEntityAt(coord).Count != 0) {
+				coord = FindEmptyTile();
+			}
+
 			if (coord == Coord.invalid) {
 				return;
 			}
-			var child = environment.BornEntityFrom(
-        mother: this, father: this,
-        mass: 2f,
-        coord: coord
-      );
+
+			var child = environment.BornEntityFrom(mother: this, father: this, mass: 2f, coord: coord);
 			environment.SpawnEntity(child);
 			mass -= 1.7f;
 		}

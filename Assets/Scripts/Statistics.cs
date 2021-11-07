@@ -64,7 +64,7 @@ public class Statistics : MonoBehaviour {
 	}
 
 	void UpdateStatistic() {
-		for(var i = 0; i < items.Length; i++) {
+		if(enabled) for(var i = 0; i < items.Length; i++) {
 			writers[i].WriteLine(items[i].update(environment));
 		}
 	}

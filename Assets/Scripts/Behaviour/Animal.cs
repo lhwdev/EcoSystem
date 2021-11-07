@@ -23,8 +23,10 @@ public abstract class Animal : LivingEntity {
 			if (_currentAction != value && environment.DebugStateChange(this))
 				Debug.Log(name + ": State changed " + _currentAction + " -> " + value);
 			_currentAction = value;
+			lastActionChoose = environment.time;
 		}
 	}
+	public float lastActionChoose;
 	public CreatureActionReason currentActionReason;
 	public Material material;
 	public int sexColorMaterialIndex;
@@ -132,6 +134,7 @@ public abstract class Animal : LivingEntity {
 	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.activeGameObject == gameObject : true);
 
 
+
 	public override TraitInfo[] CreateTraitInfos() {
 		return AnimalDefaultTraitInfos;
 	}
@@ -139,6 +142,8 @@ public abstract class Animal : LivingEntity {
 
 	public override void PostInit() {
 		base.PostInit();
+
+		lastActionChoose = 0;
 
 		// Set material to the instance material
 		var meshRenderer = transform.GetComponentInChildren<MeshRenderer>();
@@ -161,7 +166,7 @@ public abstract class Animal : LivingEntity {
 		UpdateDebugPanel();
 
 		// Increase hunger and thirst over time
-		var massFraction = Mathf.Pow(mass, 0.8f);
+		var massFraction = Mathf.Pow(mass, 0.6f);
 		hunger += environment.deltaTime * environment.hungerSpeed * energyConsumption / timeToDeathByHunger * massFraction;
 		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * massFraction;
 		if (pregnantState.childs == 0) {
@@ -263,10 +268,14 @@ public abstract class Animal : LivingEntity {
 		var predators = environment.SensePredators(this);
 		var hasPredators = predators.Count > 0;
 
-		var hungry = hunger > hungryPoint;
+		var timeFromLast = environment.time - lastActionChoose;
+		var persistLastAction = timeFromLast > 4f ? 0f : 1 / (0.7f + 2 * timeFromLast);
+
+		var hungry = hunger + (currentAction == CreatureAction.GoingToFood ? persistLastAction : 0f) > hungryPoint;
 		var criticalHungry = hunger > criticalPercent * mass;
-		var thirsty = thirst > thirstyPoint;
+		var thirsty = thirst + (currentAction == CreatureAction.GoingToWater ? persistLastAction : 0f) > thirstyPoint;
 		var criticalThirsty = thirst > criticalPercent * mass;
+		var mate = actualMateDesire + (currentAction == CreatureAction.GoingToMate ? persistLastAction : 0f) > dynamicMatePointBase;
 
 		if (hungry) {
 			if (thirsty) {
@@ -300,15 +309,15 @@ public abstract class Animal : LivingEntity {
 			} else if (hasPredators) {
 				Flee(predators);
 			} else {
-				if (actualMateDesire > dynamicMatePointBase) {
+				if (mate) {
 					FindMate();
 				} else {
 					if (!required) return false;
 
 					// If food is close enough and not full a lot, why not eat it?
-					if (hunger > -1f) {
+					if (hunger > 1f) {
 						var food = environment.SenseFood(this, FoodPreference);
-						if(food != null && Coord.SqrDistance(coord, food.coord) < 3f) {
+						if (food != null && Coord.SqrDistance(coord, food.coord) < 3f) {
 							currentAction = CreatureAction.GoingToFood;
 							currentActionReason = CreatureActionReason.PreHungry;
 							foodTarget = food;
@@ -361,7 +370,7 @@ public abstract class Animal : LivingEntity {
 			currentAction = CreatureAction.RestingIdle;
 		} else {
 			// randomly eat
-			if (environment.prng.NextDouble() < 0.1f) {
+			if (environment.prng.NextDouble() < 0.03f) {
 				FindFood();
 				return;
 			}
@@ -369,13 +378,13 @@ public abstract class Animal : LivingEntity {
 			// start random walking
 			currentAction = CreatureAction.RestingWalking;
 
-			restWalkAroundStartTime = current + (((float)environment.prng.NextDouble()) * 20f);
+			restWalkAroundStartTime = current + (((float)environment.prng.NextDouble()) * 14f);
 			remainingRestWalkCount = environment.prng.Next(8);
 		}
 
 		if (currentAction == CreatureAction.RestingWalking) {
 			if (!animatingMovement) {
-				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), NextFloat(0.9f, 2.3f), false);
+				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord, avoidCohesion: .6f, avoidSpecies: species), NextFloat(0.9f, 2.3f), false);
 			}
 		}
 	}
@@ -449,19 +458,21 @@ public abstract class Animal : LivingEntity {
 		currentAction = CreatureAction.Flee;
 		// CreatePath(tile); // do not work for neighboring tiles
 		// Debug.Log($"flee to {tile}");
-		StartMoveToCoord(tile, duration: 1f, critical: true);
+		StartMoveToCoord(tile, duration: .8f + .25f * (float)environment.prng.NextDouble(), critical: true);
 	}
 
 	// When choosing from multiple food sources, the one with the lowest penalty + highest visibility will be selected
 	protected virtual float FoodPreference(LivingEntity self, LivingEntity food) {
-		return (Mathf.Sqrt(food.mass + 1f) - 1f) / Coord.SqrDistance(self.coord, food.coord);
+		return (Mathf.Pow(food.mass + 1f, 0.3f) - 1f)
+			* (0.95f + 0.1f * (float)environment.prng.NextDouble())
+			/ (1f + Coord.SqrDistance(self.coord, food.coord));
 	}
 
 	protected void Act() {
 		switch (currentAction) {
 			case CreatureAction.Exploring:
 				var speed = (currentActionReason == CreatureActionReason.Mate && sex == Sex.Female) ? 1.3f : 1f;
-				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord), duration: 1f, critical: true);
+				StartMoveToCoord(environment.GetNextTileWeighted(coord, moveFromCoord, avoidCohesion: .3f, avoidSpecies: species), duration: 1f, critical: true);
 				break;
 
 			case CreatureAction.GoingToFood:
@@ -558,10 +569,12 @@ public abstract class Animal : LivingEntity {
 						mass += eatAmount * 0.05f; // TODO: balance appropriate heat efficiency
 					} else if (foodTarget is Animal) {
 						var target = foodTarget as Animal;
-						if (environment.prng.NextDouble() < 0.8) {
+						if (environment.prng.NextDouble() < 0.5) {
 							hunger -= target.mass;
 							mass += target.mass * 0.05f;
 							target.Die(CauseOfDeath.Eaten);
+						} else {
+							currentAction = CreatureAction.Exploring;
 						}
 					}
 				}
@@ -597,7 +610,7 @@ public abstract class Animal : LivingEntity {
 	void OnMateAnimationEnd() {
 		if (sex == Sex.Female) {
 			// became pregnant
-			pregnantState.childs = environment.prng.Next(1, 5);
+			pregnantState.childs = environment.prng.Next(1, 4);
 			pregnantState.until = environment.time + 6f;
 			var oneMass = childMaturity * species.defaultMass * (1 + 0.3f * (float)environment.prng.NextDouble());
 		}
@@ -621,7 +634,7 @@ public abstract class Animal : LivingEntity {
 		if (rejectedMateTargets.ContainsKey(with)) {
 			return false;
 		}
-		if (environment.prng.NextDouble() < Mathf.Pow(mateDesire, 0.4f)) {
+		if (environment.prng.NextDouble() < Mathf.Pow(mateDesire, 0.4f) * 0.9f) {
 			// becomes pregnant
 			currentAction = CreatureAction.Mating;
 			currentMateDesire = 0f;

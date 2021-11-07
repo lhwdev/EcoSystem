@@ -15,6 +15,7 @@ public class TimeSliderScript : MonoBehaviour {
 		sliderText = GetComponentInChildren<Text>();
 		environment = GameObject.Find("Environment").GetComponent<Environment>();
     OnValueChange(environment.timeScale);
+		slider.value = environment.timeScale;
 		slider.onValueChanged.AddListener(OnValueChange);
 	}
 

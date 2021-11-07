@@ -79,6 +79,8 @@ public class Environment : MonoBehaviour {
 	[Range(0, 50)]
 	public float mateUrgeSpeed = 1f;
 
+	float nextPlantGeneration;
+
 
 #if UNITY_EDITOR
 	public Dictionary<TraitInfo, bool> disabledTraits;
@@ -110,6 +112,26 @@ public class Environment : MonoBehaviour {
 	void Update() {
 		deltaTime = Time.deltaTime * timeScale;
 		time += deltaTime;
+
+		if(nextPlantGeneration < time) {
+			var map = speciesMaps[Species.Plant];
+
+			var iteration = 0;
+			Coord coord = Coord.invalid;
+			while(!Walkable(coord.x, coord.y) && map.GetEntityAt(coord).Count == 0) {
+				coord = new Coord(prng.Next(walkableNeighboursMap.GetLength(0)), prng.Next(walkableNeighboursMap.GetLength(1)));
+				iteration++;
+				if(iteration > 10) {
+					break;
+				}
+			}
+
+			if(coord != Coord.invalid) {
+				var plant = NewEntity(map.allEntities[0].prefab, coord);
+				SpawnEntity(plant);
+			}
+			nextPlantGeneration = time + 4f * (float)prng.NextDouble();
+		}
 	}
 
 	void OnValidate() {
@@ -191,7 +213,7 @@ public class Environment : MonoBehaviour {
 		}
 
 		// Sort food sources based on preference function
-		foodSources.Sort((a, b) => foodPreference(self, b).CompareTo(foodPreference(self, a)));
+		foodSources = foodSources.OrderBy(entity => -foodPreference(self, entity)).ToList();
 
 		// Return first visible food source
 		for (int i = 0; i < foodSources.Count; i++) {
@@ -240,10 +262,16 @@ public class Environment : MonoBehaviour {
 	}
 
 	/// Get random neighbour tile, weighted towards those in similar direction as currently facing
-	public Coord GetNextTileWeighted(Coord current, Coord previous, double forwardProbability = 0.2, int weightingIterations = 3) {
+	public Coord GetNextTileWeighted(
+		Coord current,
+		Coord previous,
+		double forwardProbability = 0.2,
+		int weightingIterations = 3,
+		float avoidCohesion = 0f,
+		Species avoidSpecies = null
+	) {
 
 		if (current == previous) {
-
 			return GetNextTileRandom(current);
 		}
 
@@ -274,6 +302,14 @@ public class Environment : MonoBehaviour {
 			Coord neighbour = neighbours[prng.Next(neighbours.Length)];
 			Vector2 offset = neighbour - current;
 			float score = Vector2.Dot(offset.normalized, forwardDir);
+
+			if(avoidCohesion > 0f) {
+				var already = speciesMaps[avoidSpecies].GetEntityAt(neighbour);
+				if(already.Count > 0) {
+					score *= 1 - avoidCohesion;
+				}
+			}
+
 			if (score > bestScore) {
 				bestScore = score;
 				bestNeighbour = neighbour;

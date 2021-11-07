@@ -153,8 +153,8 @@ MonoBehaviour:
   timeBetweenActionChoices: 1
   timeToDeathByHunger: 100
   timeToDeathByThirst: 90
-  hungryPointBase: 0.3
-  thirstyPointBase: 0.25
+  hungryPointBase: 0.38
+  thirstyPointBase: 0.33
   matePointBase: 0.4
   criticalPercent: 0.7
   hunger: 0

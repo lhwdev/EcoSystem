@@ -38,6 +38,14 @@ public class Map {
 		return map[regionX, regionY];
 	}
 
+	public List<LivingEntity> GetEntityAt(Coord coord) {
+		var regionX = coord.x / regionSize;
+		var regionY = coord.y / regionSize;
+
+		var region = map[regionX, regionY];
+		return region.FindAll(e => e.coord == coord);
+	}
+
 	public List<LivingEntity> GetEntities(Coord origin, float viewDistance) {
 		List<RegionInfo> visibleRegions = GetRegionsInView(origin, viewDistance);
 		float sqrViewDst = viewDistance * viewDistance;
@@ -155,13 +163,13 @@ public class Map {
 			}
 			// Remove last entity from the list
 			map[regionX, regionY].RemoveAt(lastElementIndex);
-            allEntities.Remove(e);
+			allEntities.Remove(e);
 			numEntities--;
 		}
 	}
 
 	public void RemoveAll() {
-		foreach(var tile in map) {
+		foreach (var tile in map) {
 			tile.Clear();
 		}
 		allEntities.Clear();
