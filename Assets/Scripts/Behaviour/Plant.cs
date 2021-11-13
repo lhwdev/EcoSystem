@@ -17,7 +17,7 @@ public class Plant : LivingEntity {
 	}
 
 	void UpdateReproduceTime() {
-		reproduceTime = environment.time + 50f + ((float)environment.prng.NextDouble() * 60f);
+		reproduceTime = environment.time + 90f + ((float)environment.prng.NextDouble() * 60f);
 	}
 
 	Coord FindEmptyTile() {
@@ -41,7 +41,7 @@ public class Plant : LivingEntity {
 		if (mass > 3f) {
 			Coord coord = Coord.invalid;
 			// 1. random fly
-			if (environment.prng.NextDouble() < 0.7) {
+			if (environment.prng.NextDouble() < 0.3) {
 				coord = this.coord + new Coord(environment.prng.Next(-5, 6), environment.prng.Next(-5, 6));
 			}
 

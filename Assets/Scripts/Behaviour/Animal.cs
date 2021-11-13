@@ -35,8 +35,8 @@ public abstract class Animal : LivingEntity {
 
 	// Settings:
 	public float timeBetweenActionChoices = 1;
-	public float timeToDeathByHunger = 100;
-	public float timeToDeathByThirst = 90;
+	public float timeToDeathByHunger = 200;
+	public float timeToDeathByThirst = 150;
 	[Range(0, 1)]
 	public float hungryPointBase = .1f;
 	[Range(0, 1)]
@@ -87,13 +87,14 @@ public abstract class Animal : LivingEntity {
 
 
 	public static BinaryTraitInfo sexTrait = new BinaryTraitInfo("sex", defaultValue: null);
-	public static ValueTraitInfo moveSpeedTrait = new ValueTraitInfo("moveSpeed", defaultValue: 1.5f, min: 0.5f, max: 5f, defaultUrge: 5f);
-	public static ValueTraitInfo drinkDurationTrait = new ValueTraitInfo("drinkDuration", defaultValue: 6f, min: 1f, max: 40f, defaultUrge: 3f);
-	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, defaultUrge: 4f);
-	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, defaultUrge: 1.2f);
-	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, defaultUrge: 1.4f);
-	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 20f, min: 5f, max: 50f, defaultUrge: 2f);
-	public static ValueTraitInfo fleeDetectDistanceTrait = new ValueTraitInfo("fleeDetectDistance", defaultValue: 7f, min: 3f, max: 20f, defaultUrge: 1.5f);
+	public static ValueTraitInfo moveSpeedTrait = new ValueTraitInfo("moveSpeed", defaultValue: 1.5f, min: 0.5f, max: 5f, maintainUrge: 5f);
+	public static ValueTraitInfo drinkDurationTrait = new ValueTraitInfo("drinkDuration", defaultValue: 6f, min: 1f, max: 40f, maintainUrge: 3f);
+	public static ValueTraitInfo eatDurationTrait = new ValueTraitInfo("eatDuration", defaultValue: 10f, min: 1f, max: 60f, maintainUrge: 4f);
+	public static ValueTraitInfo mateDesireTrait = new ValueTraitInfo("mateDesire", defaultValue: .4f, min: 0.0f, max: 1.0f, maintainUrge: 1.2f);
+	public static ValueTraitInfo childMaturityTrait = new ValueTraitInfo("childMaturity", defaultValue: .5f, min: 0.0f, max: 1.0f, maintainUrge: 1.4f);
+	public static ValueTraitInfo maxViewDistanceTrait = new ValueTraitInfo("maxViewDistance", defaultValue: 20f, min: 5f, max: 50f, maintainUrge: 2f);
+	public static ValueTraitInfo fleeDetectDistanceTrait = new ValueTraitInfo("fleeDetectDistance", defaultValue: 7f, min: 3f, max: 20f, maintainUrge: 1.5f);
+	public static ValueTraitInfo attentionTrait = new ValueTraitInfo("attention", defaultValue: .6f, min: 0f, max: 1f, maintainUrge: 1.5f);
 
 
 	public static TraitInfo[] AnimalDefaultTraitInfos = LivingEntity.LivingEntityDefaultTraitInfos.ConcatArray(new TraitInfo[] {
@@ -105,6 +106,7 @@ public abstract class Animal : LivingEntity {
 		childMaturityTrait,
 		maxViewDistanceTrait,
 		fleeDetectDistanceTrait,
+		attentionTrait,
 	});
 
 	public Sex sex => genes.Get<BinaryTrait>(sexTrait).value ? Sex.Male : Sex.Female;
@@ -115,6 +117,9 @@ public abstract class Animal : LivingEntity {
 	public float childMaturity => genes.Get<ValueTrait>(childMaturityTrait).value;
 	public float maxViewDistance => genes.Get<ValueTrait>(maxViewDistanceTrait).value;
 	public float fleeDetectDistance => genes.Get<ValueTrait>(fleeDetectDistanceTrait).value;
+	public float attention => genes.Get<ValueTrait>(attentionTrait).value;
+
+	public bool currentAttention = false;
 
 
 	// younger animals consume more
@@ -150,6 +155,7 @@ public abstract class Animal : LivingEntity {
 		material = meshRenderer.materials[sexColorMaterialIndex];
 
 		moveFromCoord = coord;
+		UpdateAttention();
 		UpdateMatePointBase();
 
 		ChooseNextAction(required: true);
@@ -157,7 +163,11 @@ public abstract class Animal : LivingEntity {
 
 	void UpdateMatePointBase() {
 		var desire = mateDesire;
-		dynamicMatePointBase = (0.3f + (float)environment.prng.NextDouble()) * (1f + desire);
+		dynamicMatePointBase = (0.3f + (float)environment.prng.NextDouble()) * (1f + desire) * (1.1f - 0.25f * attention);
+	}
+
+	void UpdateAttention() {
+		currentAttention = ((float)environment.prng.NextDouble()) < attention;
 	}
 
 
@@ -166,7 +176,7 @@ public abstract class Animal : LivingEntity {
 		UpdateDebugPanel();
 
 		// Increase hunger and thirst over time
-		var massFraction = Mathf.Pow(mass, 0.6f);
+		var massFraction = Mathf.Pow(mass, 0.3f);
 		hunger += environment.deltaTime * environment.hungerSpeed * energyConsumption / timeToDeathByHunger * massFraction;
 		thirst += environment.deltaTime * environment.thirstSpeed / timeToDeathByThirst * massFraction;
 		if (pregnantState.childs == 0) {
@@ -253,6 +263,7 @@ public abstract class Animal : LivingEntity {
 	// or, when not moving (e.g interacting with food etc), at a fixed time interval
 	protected virtual bool ChooseNextAction(bool required) {
 		lastActionChooseTime = Time.time;
+		UpdateAttention();
 		// Get info about surroundings
 
 		// Decide next action:
@@ -266,7 +277,7 @@ public abstract class Animal : LivingEntity {
 		}
 		var thirstyPoint = thirstyPointBase * mass;
 		var predators = environment.SensePredators(this);
-		var hasPredators = predators.Count > 0;
+		var hasPredators = currentAttention && predators.Count > 0;
 
 		var timeFromLast = environment.time - lastActionChoose;
 		var persistLastAction = timeFromLast > 4f ? 0f : 1 / (0.7f + 2 * timeFromLast);

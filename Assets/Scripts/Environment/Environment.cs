@@ -68,7 +68,6 @@ public class Environment : MonoBehaviour {
 
 	[HideInInspector]
 	public float deltaTime;
-	[HideInInspector]
 	public float time;
 
 	// debugs
@@ -113,25 +112,25 @@ public class Environment : MonoBehaviour {
 		deltaTime = Time.deltaTime * timeScale;
 		time += deltaTime;
 
-		if(nextPlantGeneration < time) {
-			var map = speciesMaps[Species.Plant];
+		// if(nextPlantGeneration < time) {
+		// 	var map = speciesMaps[Species.Plant];
 
-			var iteration = 0;
-			Coord coord = Coord.invalid;
-			while(!Walkable(coord.x, coord.y) && map.GetEntityAt(coord).Count == 0) {
-				coord = new Coord(prng.Next(walkableNeighboursMap.GetLength(0)), prng.Next(walkableNeighboursMap.GetLength(1)));
-				iteration++;
-				if(iteration > 10) {
-					break;
-				}
-			}
+		// 	var iteration = 0;
+		// 	Coord coord = Coord.invalid;
+		// 	while(!Walkable(coord.x, coord.y) && map.GetEntityAt(coord).Count == 0) {
+		// 		coord = new Coord(prng.Next(walkableNeighboursMap.GetLength(0)), prng.Next(walkableNeighboursMap.GetLength(1)));
+		// 		iteration++;
+		// 		if(iteration > 10) {
+		// 			break;
+		// 		}
+		// 	}
 
-			if(coord != Coord.invalid) {
-				var plant = NewEntity(map.allEntities[0].prefab, coord);
-				SpawnEntity(plant);
-			}
-			nextPlantGeneration = time + 4f * (float)prng.NextDouble();
-		}
+		// 	if(coord != Coord.invalid) {
+		// 		var plant = NewEntity(map.allEntities[0].prefab, coord);
+		// 		SpawnEntity(plant);
+		// 	}
+		// 	nextPlantGeneration = time + 4f * (float)prng.NextDouble();
+		// }
 	}
 
 	void OnValidate() {

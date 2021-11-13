@@ -61,14 +61,15 @@ MonoBehaviour:
   mass: 0
   bornAt: 0
   _currentAction: 0
+  lastActionChoose: 0
   currentActionReason: 0
   material: {fileID: 2100000, guid: 0e27191982d3a4c009146d1cb7557207, type: 2}
   sexColorMaterialIndex: 2
   maleColour: {r: 0.35686275, g: 0.23137255, b: 0.12941177, a: 0}
   femaleColour: {r: 0.7735849, g: 0.50602174, b: 0.40503737, a: 1}
   timeBetweenActionChoices: 1
-  timeToDeathByHunger: 100
-  timeToDeathByThirst: 90
+  timeToDeathByHunger: 200
+  timeToDeathByThirst: 130
   hungryPointBase: 0.25
   thirstyPointBase: 0.25
   matePointBase: 0.4

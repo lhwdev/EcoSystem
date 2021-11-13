@@ -147,7 +147,7 @@ public class MainCamera : MonoBehaviour {
 		}
 		void rotate(Vector3 target) {
 			var result = transform.localRotation * target * Time.deltaTime * walkSpeed;
-			if (followTarget) {
+			if (followSelection) {
 				result.Scale(new Vector3(1f, 0f, 1f));
 				position += result;
 			} else {

@@ -221,20 +221,20 @@ public class ValueTraitInfo : TraitInfo {
 	public float defaultValue;
 	public float min;
 	public float max;
-	public float defaultUrge;
+	public float maintainUrge;
 
 
-	public ValueTraitInfo(String name, float defaultValue, float min, float max, float defaultUrge = 2f) : base() {
+	public ValueTraitInfo(String name, float defaultValue, float min, float max, float maintainUrge = 2f) : base() {
 		this.name = name;
 		this.defaultValue = defaultValue;
 		this.min = min;
 		this.max = max;
-		this.defaultUrge = defaultUrge;
+		this.maintainUrge = maintainUrge;
 	}
 
 	public override Trait Default(InheritContext context) {
 		if (float.IsNaN(defaultValue) || context.IsVariation(this)) {
-			return new ValueTrait(this, context.VariationTraitFloat(min, max, defaultValue, defaultUrge));
+			return new ValueTrait(this, context.VariationTraitFloat(min, max, defaultValue, maintainUrge));
 		} else {
 			return new ValueTrait(this, defaultValue);
 		}
@@ -249,7 +249,8 @@ public class ValueTrait : Trait {
 		}
 
 		if (context.IsVariation(info)) {
-			return new ValueTrait(info, context.VariationTraitFloat(info.min, info.max, info.defaultValue, info.defaultUrge));
+			var target = context.InheritTraitBare(father.value, mother.value);
+			return new ValueTrait(info, context.VariationTraitFloat(info.min, info.max, target, info.maintainUrge));
 		} else {
 			return new ValueTrait(info, context.InheritTraitBare(father.value, mother.value));
 		}

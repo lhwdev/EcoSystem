@@ -26,7 +26,7 @@ public abstract class LivingEntity : MonoBehaviour {
 	public float mass;
 	public float bornAt;
 	public float age {
-		get => environment.time - bornAt;
+		get => bornAt - environment.time;
 		set => bornAt = environment.time + value;
 	}
 
@@ -53,12 +53,12 @@ public abstract class LivingEntity : MonoBehaviour {
 		this.environment = environment;
 
 		transform.position = environment.tileCentres[coord.x, coord.y];
-
-		bornAt = environment.time;
 	}
 
 	public virtual void InitNew() {
 		this.mass = species.defaultMass * Random.Range(0.9f, 1.1f);
+
+		bornAt = environment.time;
 	}
 
 	public virtual void InitInherit(LivingEntity mother, LivingEntity father) { }
