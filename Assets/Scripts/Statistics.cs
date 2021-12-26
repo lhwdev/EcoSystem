@@ -7,6 +7,7 @@ using UnityEngine;
 
 
 public struct StatisticItem {
+	public bool valid;
 	public string name;
 	public Func<Environment, string> header;
 	public Func<Environment, string> update;
@@ -18,15 +19,17 @@ public class Statistics : MonoBehaviour {
 		new StatisticItem {
 			name = "개체 수",
 			header = (env) => env.DumpCurrentPopulationKinds(),
-			update = (env) => env.DumpCurrentPopulationCount()
+			update = (env) => env.DumpCurrentPopulationCount(),
+			valid = true
 		},
 		new StatisticItem {
 			name = "속도",
 			header = (env) => "Bunny",
 			update = (env) => {
 				var all = env.speciesMaps[Species.Bunny].allEntities;
-				return all.Count == 0 ? "?" : all.Average(e => (e as Animal).moveSpeed).ToString();
+				return all.Average(e => (e as Animal).moveSpeed).ToString();
 			},
+			valid = true
 		},
 		new StatisticItem {
 			name = "번식 욕구",
@@ -35,6 +38,7 @@ public class Statistics : MonoBehaviour {
 				var all = env.speciesMaps[Species.Bunny].allEntities;
 				return all.Average(e => (e as Animal).mateDesire).ToString();
 			},
+			valid = true
 		}
 	};
 
@@ -53,7 +57,7 @@ public class Statistics : MonoBehaviour {
 		filePath = Application.persistentDataPath;
 
 		writers = new StreamWriter[items.Length];
-		for(var i = 0; i < items.Length; i++) {
+		for (var i = 0; i < items.Length; i++) {
 			var writer = File.CreateText(filePath + "/" + items[i].name + ".csv");
 			writer.WriteLine(items[i].header(environment));
 			writers[i] = writer;
@@ -64,19 +68,25 @@ public class Statistics : MonoBehaviour {
 	}
 
 	void UpdateStatistic() {
-		if(enabled) for(var i = 0; i < items.Length; i++) {
-			writers[i].WriteLine(items[i].update(environment));
-		}
+		if (enabled) for (var i = 0; i < items.Length; i++) {
+				try {
+					if (items[i].valid) {
+						writers[i].WriteLine(items[i].update(environment));
+					}
+				} catch (Exception e) {
+					items[i].valid = false;
+				}
+			}
 	}
 
 	void OnApplicationQuit() {
-		for(var i = 0; i < items.Length; i++) {
+		for (var i = 0; i < items.Length; i++) {
 			writers[i].Close();
 		}
 	}
 
 	void Update() {
-		if(environment.timeScale != lastTimeScale) {
+		if (environment.timeScale != lastTimeScale) {
 			CancelInvoke("UpdateStatistic");
 			lastTimeScale = environment.timeScale;
 			InvokeRepeating("UpdateStatistic", 0.3f, interval / environment.timeScale);

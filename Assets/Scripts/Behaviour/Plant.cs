@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEngine;
 
 public class Plant : LivingEntity {
+	static float maxMass = 18f;
 	const float consumeSpeed = 8;
 
 	float reproduceTime;
@@ -17,7 +18,7 @@ public class Plant : LivingEntity {
 	}
 
 	void UpdateReproduceTime() {
-		reproduceTime = environment.time + 90f + ((float)environment.prng.NextDouble() * 60f);
+		reproduceTime = environment.time + 50f + ((float)environment.prng.NextDouble() * 400f);
 	}
 
 	Coord FindEmptyTile() {
@@ -62,7 +63,13 @@ public class Plant : LivingEntity {
 
 	void Update() {
 		// Photosynthesis
-		mass += environment.deltaTime / 200f;
+		if (mass < maxMass) {
+			mass += environment.deltaTime / 5000f;
+		}
+
+		if (mass > maxMass) {
+			mass = maxMass;
+		}
 
 		if (reproduceTime < environment.time) {
 			Reproduce();
@@ -78,7 +85,7 @@ public class Plant : LivingEntity {
 		float amountConsumed = Mathf.Max(0, Mathf.Min(this.mass, mass));
 		this.mass -= mass * consumeSpeed;
 
-		if (this.mass <= 0) {
+		if (this.mass <= 0.01f) {
 			Die(CauseOfDeath.Eaten);
 		}
 

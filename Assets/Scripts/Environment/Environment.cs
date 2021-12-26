@@ -63,7 +63,7 @@ public class Environment : MonoBehaviour {
 	GameObject entities;
 
 	public InheritContext inheritContext;
-
+	[Range(0, 30)]
 	public float timeScale = 1f;
 
 	[HideInInspector]

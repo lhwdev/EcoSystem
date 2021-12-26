@@ -152,12 +152,12 @@ MonoBehaviour:
   maleColour: {r: 0.2924528, g: 0.26400027, b: 0.2469295, a: 1}
   femaleColour: {r: 0.4433962, g: 0.40975046, b: 0.36601102, a: 1}
   timeBetweenActionChoices: 1
-  timeToDeathByHunger: 300
-  timeToDeathByThirst: 200
-  hungryPointBase: 0.38
-  thirstyPointBase: 0.33
+  timeToDeathByHunger: 210
+  timeToDeathByThirst: 140
+  hungryPointBase: 0.42
+  thirstyPointBase: 0.39
   matePointBase: 0.4
-  criticalPercent: 0.7
+  criticalPercent: 0.8
   hunger: 0
   thirst: 0
   animatingMovement: 0
@@ -173,6 +173,7 @@ MonoBehaviour:
   moveStartPos: {x: 0, y: 0, z: 0}
   moveTargetPos: {x: 0, y: 0, z: 0}
   moveTime: 0
+  currentAttention: 0
   dynamicMatePointBase: 0
   currentMateDesire: 0
   pregnantState:
