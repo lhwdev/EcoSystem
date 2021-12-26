@@ -42,6 +42,7 @@ public class Statistics : MonoBehaviour {
 		}
 	};
 
+	[HideInInspector]
 	public string filePath;
 	public float interval;
 

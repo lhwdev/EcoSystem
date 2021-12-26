@@ -29,7 +29,11 @@ public class MainCamera : MonoBehaviour {
 	private Vector3 lastTargetPosition;
 
 	bool follow => followSelection || followWalker;
+#if UNITY_EDITOR
 	Transform followTarget => followSelection ? Selection.activeTransform : (followWalker ? walker.transform : null);
+#else
+	Transform followTarget => followWalker ? walker.transform : null;
+#endif
 
 	private void Start() {
 		// Initialize the correct initial rotation
@@ -40,19 +44,23 @@ public class MainCamera : MonoBehaviour {
 	}
 
 	LivingEntity target() {
+#if UNITY_EDITOR
 		if (trackEntity) {
 			return null;
 		} else {
 			return Selection.GetFiltered<LivingEntity>(SelectionMode.TopLevel).FirstOrDefault();
 		}
+#else
+		return null;
+#endif
 	}
 
 	private void Update() {
-		if(Input.GetKeyDown(KeyCode.F)) {
-			if(followSelection) {
+		if (Input.GetKeyDown(KeyCode.F)) {
+			if (followSelection) {
 				followSelection = false;
 				followWalker = true;
-			} else if(followWalker) {
+			} else if (followWalker) {
 				followWalker = false;
 				followSelection = false;
 			} else {

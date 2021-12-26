@@ -136,8 +136,12 @@ public abstract class Animal : LivingEntity {
 
 
 	protected GameObject debugPanel => transform.Find("AnimalState")?.gameObject;
-	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.activeGameObject == gameObject : true);
 
+#if UNITY_EDITOR
+	protected bool showState => environment.showState && (environment.showStateForSelected ? Selection.activeGameObject == gameObject : true);
+#else
+	protected bool showState => environment.showState && (!environment.showStateForSelected);
+#endif
 
 
 	public override TraitInfo[] CreateTraitInfos() {

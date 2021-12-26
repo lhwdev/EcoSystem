@@ -717,7 +717,11 @@ public class Environment : MonoBehaviour {
 	public bool DebugStateChange(LivingEntity self) {
 		if (debugStateChange) {
 			if (debugStateChangeForSelected) {
+#if UNITY_EDITOR
 				return Selection.Contains(self);
+#else 
+				return false;
+#endif
 			} else {
 				return true;
 			}
